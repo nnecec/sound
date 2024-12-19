@@ -1,41 +1,25 @@
-import { useEffect, useState } from 'react'
-import { arrBufferList, bufferToWave, concatAudio, mergeAudio } from './utils'
+import { use } from 'react'
+
+const track1Promise = fetch('/assets/relaxing-guitar-loop-v5-245859.mp3').then(
+  response => response.blob(),
+)
+const effect1Promise = fetch('/assets/level-up-191997.mp3').then(response =>
+  response.blob(),
+)
 
 function App() {
-  const [concatAudioBuffer, setConcatAudioBuffer] = useState<AudioBuffer[]>()
-  const [mergeAudioBuffer, setMergeAudioBuffer] = useState<AudioBuffer[]>()
-  useEffect(() => {
-    const bufferList = arrBufferList
-    setConcatAudioBuffer(concatAudio(bufferList))
-    setMergeAudioBuffer(mergeAudio(bufferList))
-  }, [])
+  const track1 = use(track1Promise)
+  const effect1 = use(effect1Promise)
 
   return (
     <div>
       <h1 className='text-3xl font-bold underline'>Hello World</h1>
       <button type='button' className='btn'>
-        Default
+        Play
       </button>
-      <audio
-        src={
-          concatAudioBuffer
-            ? URL.createObjectURL(
-                bufferToWave(concatAudioBuffer, concatAudioBuffer.length),
-              )
-            : undefined
-        }
-        controls
-      />
-      <audio
-        src={
-          mergeAudioBuffer
-            ? URL.createObjectURL(
-                bufferToWave(mergeAudioBuffer, mergeAudioBuffer.length),
-              )
-            : undefined
-        }
-        controls
-      />
+
+      <audio src={URL.createObjectURL(track1)} controls />
+      <audio src={URL.createObjectURL(effect1)} controls />
     </div>
   )
 }
