@@ -1,16 +1,27 @@
-import { use } from 'react'
-import { useForm, SubmitHandler } from 'react-hook-form'
+"use client"
 
-const track1Promise = fetch('/assets/relaxing-guitar-loop-v5-245859.mp3').then(
-  response => response.blob(),
-)
-const effect1Promise = fetch('/assets/level-up-191997.mp3').then(response =>
-  response.blob(),
-)
+import { useForm } from "react-hook-form"
+import { playMergedAudio, Track } from "./utils"
+import { useEffect, useState } from "react"
+
+const trackConfig: Track[] = [
+  {
+    src: "/assets/relaxing-guitar-loop-v5-245859.mp3",
+  },
+  {
+    src: "/assets/typing-keyboard-sound-254462.mp3",
+    startPosition: 2,
+  },
+]
 
 function App() {
-  const track1 = use(track1Promise)
-  const effect1 = use(effect1Promise)
+  const [src, setSrc] = useState("")
+  console.log("🚀 ~ App ~ src:", src)
+  useEffect(() => {
+    playMergedAudio(trackConfig).then((src) => {
+      setSrc(src)
+    })
+  }, [])
 
   const {
     register,
@@ -18,28 +29,27 @@ function App() {
     watch,
     formState: { errors },
   } = useForm()
-  const onSubmit: SubmitHandler<Inputs> = data => console.log(data)
+  const onSubmit = (data) => console.log(data)
 
   return (
-    <div className='container py-10 mx-auto '>
+    <div className="container py-10 mx-auto ">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className='max-w-md flex flex-col gap-4 mx-auto'
+        className="max-w-md flex flex-col gap-4 mx-auto"
       >
         <input
-          {...register('startPosition', { required: true })}
-          type='number'
-          placeholder='startPosition' // 相对于句首的开始时间
-          className='input w-full'
+          {...register("startPosition", { required: true })}
+          type="number"
+          placeholder="startPosition" // 相对于句首的开始时间
+          className="input w-full"
         />
 
-        <button type='submit' className='btn'>
+        <button type="submit" className="btn">
           Submit
         </button>
       </form>
 
-      <audio src={URL.createObjectURL(track1)} controls />
-      <audio src={URL.createObjectURL(effect1)} controls />
+      {src && <audio controls src={src} />}
     </div>
   )
 }
