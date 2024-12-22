@@ -1,55 +1,74 @@
-"use client"
+'use client'
 
-import { useForm } from "react-hook-form"
-import { playMergedAudio, Track } from "./utils"
-import { useEffect, useState } from "react"
+import { playMergedAudio, Track } from './utils'
+import { useRef, useState } from 'react'
+import { useInterval } from '@reactuses/core'
 
 const trackConfig: Track[] = [
   {
-    src: "/assets/relaxing-guitar-loop-v5-245859.mp3",
+    src: '/assets/relaxing-guitar-loop-v5-245859.mp3',
+    fadeInEnd: 4, // 渐入结束时间
+    fadeOutStart: -4, // 渐出开始时间
+    startPosition: 2,
   },
   {
-    src: "/assets/typing-keyboard-sound-254462.mp3",
-    startPosition: 2,
+    src: '/assets/typing-keyboard-sound-254462.mp3',
+  },
+  {
+    src: '/assets/level-up-191997.mp3',
+    startPosition: 10, // 插入到第10秒播放
   },
 ]
 
 function App() {
-  const [src, setSrc] = useState("")
-  console.log("🚀 ~ App ~ src:", src)
-  useEffect(() => {
-    playMergedAudio(trackConfig).then((src) => {
-      setSrc(src)
-    })
-  }, [])
+  const [interval, setInterval] = useState<number | null>(null)
+  const [count, setCount] = useState(0)
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm()
-  const onSubmit = (data) => console.log(data)
+  useInterval(() => {
+    setCount(count + 1)
+  }, interval)
 
   return (
-    <div className="container py-10 mx-auto ">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="max-w-md flex flex-col gap-4 mx-auto"
-      >
-        <input
-          {...register("startPosition", { required: true })}
-          type="number"
-          placeholder="startPosition" // 相对于句首的开始时间
-          className="input w-full"
-        />
+    <div className='container py-10 mx-auto '>
+      <div className='flex gap-3'>
+        <button
+          type='button'
+          className='btn'
+          onClick={() => {
+            const audioContext = new AudioContext()
 
-        <button type="submit" className="btn">
-          Submit
+            playMergedAudio(trackConfig).then(audioBuffer => {
+              console.log('Merged AudioBuffer:', audioBuffer)
+              // 你可以直接使用 mergedBuffer 进行播放
+              const source = audioContext.createBufferSource()
+              source.buffer = audioBuffer
+              source.connect(audioContext.destination)
+              sourceRef.current = source
+              source.start()
+              setInterval(1000)
+              source.onended = () => {
+                setInterval(null)
+                setCount(0)
+              }
+            })
+          }}
+        >
+          Play
         </button>
-      </form>
-
-      {src && <audio controls src={src} />}
+        <button
+          type='button'
+          className='btn'
+          onClick={() => {
+            sourceRef.current?.stop()
+            setInterval(null)
+            setCount(0)
+          }}
+        >
+          Stop
+        </button>
+      </div>
+      <div>计时: {count} 秒</div>
     </div>
   )
 }
