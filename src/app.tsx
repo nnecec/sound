@@ -36,6 +36,7 @@ function App() {
         <button
           type="button"
           className="btn"
+          disabled={!!interval}
           onClick={() => {
             const audioContext = new AudioContext()
 
@@ -52,10 +53,11 @@ function App() {
             })
           }}
         >
-          Play
+          {interval ? "Playing" : "Play"}
         </button>
         <button
           type="button"
+          disabled={!interval}
           className="btn"
           onClick={() => {
             sourceRef.current?.stop()

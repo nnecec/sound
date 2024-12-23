@@ -40,6 +40,5 @@ export function preview({
   const source = audioContext.createBufferSource()
   source.buffer = audioBuffer
   source.connect(audioContext.destination)
-  source.start()
   return source
 }
