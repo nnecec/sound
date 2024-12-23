@@ -51,11 +51,6 @@ export const mergeTracks = async (trackConfig: Track[]) => {
         ? audioBuffer.duration - config.fadeOutStart // 渐出持续时间
         : Math.abs(config.fadeOutStart)
       : 0
-    console.log(
-      "🚀 ~ mergeTracks ~ fadeOutDuration:",
-      fadeOutStart,
-      fadeOutDuration,
-    )
 
     const delaySamples = startPosition * sampleRate // 转换为样本数
     const fadeInEndSample = fadeInEnd ? fadeInEnd * sampleRate : undefined

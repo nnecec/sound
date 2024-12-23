@@ -33,8 +33,13 @@ export async function createAudioBuffer(
   return
 }
 
-export async function playMergedAudio(trackConfig: Track[]) {
-  const src = await mergeTracks(trackConfig)
-
-  return src
+export function preview({
+  audioContext,
+  audioBuffer,
+}: { audioContext: AudioContext; audioBuffer: AudioBuffer }) {
+  const source = audioContext.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(audioContext.destination)
+  source.start()
+  return source
 }

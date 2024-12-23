@@ -13,18 +13,17 @@
     "@reactuses/core": "^6.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-hook-form": "^7.54.1",
     "tailwindcss": "next"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@tailwindcss/vite": "next",
-    "@types/react": "^19.0.1",
+    "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
     "daisyui": "alpha",
     "typescript": "^5.7.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.5"
   },
   "packageManager": "pnpm@9.15.0"
 }

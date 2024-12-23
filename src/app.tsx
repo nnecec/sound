@@ -1,21 +1,22 @@
-'use client'
+"use client"
 
-import { playMergedAudio, Track } from './utils'
-import { useRef, useState } from 'react'
-import { useInterval } from '@reactuses/core'
+import { preview, Track } from "./utils"
+import { mergeTracks } from "./utils/merge"
+import { useRef, useState } from "react"
+import { useInterval } from "@reactuses/core"
 
 const trackConfig: Track[] = [
   {
-    src: '/assets/relaxing-guitar-loop-v5-245859.mp3',
+    src: "/assets/relaxing-guitar-loop-v5-245859.mp3",
     fadeInEnd: 4, // 渐入结束时间
     fadeOutStart: -4, // 渐出开始时间
     startPosition: 2,
   },
   {
-    src: '/assets/typing-keyboard-sound-254462.mp3',
+    src: "/assets/typing-keyboard-sound-254462.mp3",
   },
   {
-    src: '/assets/level-up-191997.mp3',
+    src: "/assets/level-up-191997.mp3",
     startPosition: 10, // 插入到第10秒播放
   },
 ]
@@ -30,23 +31,20 @@ function App() {
   }, interval)
 
   return (
-    <div className='container py-10 mx-auto '>
-      <div className='flex gap-3'>
+    <div className="container py-10 mx-auto ">
+      <div className="flex gap-3">
         <button
-          type='button'
-          className='btn'
+          type="button"
+          className="btn"
           onClick={() => {
             const audioContext = new AudioContext()
 
-            playMergedAudio(trackConfig).then(audioBuffer => {
-              console.log('Merged AudioBuffer:', audioBuffer)
-              // 你可以直接使用 mergedBuffer 进行播放
-              const source = audioContext.createBufferSource()
-              source.buffer = audioBuffer
-              source.connect(audioContext.destination)
+            mergeTracks(trackConfig).then((audioBuffer) => {
+              const source = preview({ audioContext, audioBuffer })
               sourceRef.current = source
               source.start()
               setInterval(1000)
+
               source.onended = () => {
                 setInterval(null)
                 setCount(0)
@@ -57,8 +55,8 @@ function App() {
           Play
         </button>
         <button
-          type='button'
-          className='btn'
+          type="button"
+          className="btn"
           onClick={() => {
             sourceRef.current?.stop()
             setInterval(null)
