@@ -1,11 +1,13 @@
-import { createArrayBuffer, Track } from "."
+import { createArrayBufferFromUrl } from "./utils"
+import type { TrackConfig } from "./type"
 
-export const mergeTracks = async (trackConfig: Track[]) => {
-  const audioContext = new AudioContext()
-
+export const merge = async ({
+  track,
+  audioContext,
+}: { track: TrackConfig; audioContext: AudioContext }) => {
   const audioBuffers = await Promise.all(
-    trackConfig.map(async (track) => {
-      const arrayBuffer = await createArrayBuffer(track.src)
+    track.map(async (track) => {
+      const arrayBuffer = await createArrayBufferFromUrl(track.src)
       return audioContext.decodeAudioData(arrayBuffer)
     }),
   )
@@ -18,7 +20,7 @@ export const mergeTracks = async (trackConfig: Track[]) => {
 
   // Determine the duration of the longest track plus any start positions
   const totalDuration = audioBuffers.reduce((total, buffer, index) => {
-    const startPosition = trackConfig[index].startPosition || 0
+    const startPosition = track[index].startPosition || 0
     return Math.max(total, startPosition + buffer.duration)
   }, 0)
 
@@ -31,7 +33,7 @@ export const mergeTracks = async (trackConfig: Track[]) => {
   )
 
   // 3. 将每个音轨的数据混合到目标 AudioBuffer 中
-  for (const config of trackConfig) {
+  for (const config of track) {
     const audioBuffer = audioBuffers.shift()!
 
     const startPosition = config.startPosition || 0 // 默认为 0
