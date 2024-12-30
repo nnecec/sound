@@ -7,9 +7,10 @@ export const tracks: TrackConfigs = [
     src: "/assets/sunflower-street-drumloop-85bpm-163900.mp3",
     fadeInDuration: 4,
     fadeOutDuration: 4,
+    volume: 0.5,
   },
   {
-    startTime: 6.34,
+    startTime: 4.34,
     src: "/assets/soft-piano-100-bpm-121529.mp3",
   },
   {
@@ -19,6 +20,7 @@ export const tracks: TrackConfigs = [
   {
     startTime: 18.3,
     src: "/assets/mouse-click-198485.mp3",
+    volume: 0.8,
   },
   {
     startTime: 24.0,

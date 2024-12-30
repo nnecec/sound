@@ -1,19 +1,19 @@
 import { Track } from "./track"
 import type { Tracks, TrackConfigs } from "./type"
-import { prepare, clear } from "./utils"
 
-export class Sonar {
+export class Sonar extends EventTarget {
   trackConfigs: TrackConfigs
   tracks: Tracks = []
   audioContext = new AudioContext()
 
   static async create(trackConfigs: TrackConfigs) {
     const sonar = new Sonar(trackConfigs)
-    await sonar.buildMixedTracks()
+    sonar.buildMixedTracks()
     return sonar
   }
 
   constructor(trackConfigs: TrackConfigs) {
+    super()
     this.validateTrackConfigs(trackConfigs)
     this.trackConfigs = trackConfigs
   }
@@ -28,14 +28,16 @@ export class Sonar {
     }
   }
 
-  async buildMixedTracks() {
+  buildMixedTracks() {
     for (const i in this.trackConfigs) {
       this.tracks[i] = new Track(this.audioContext, this.trackConfigs[i])
     }
   }
 
   async prepare() {
-    prepare(this.tracks)
+    for (const track of this.tracks) {
+      await track.prepare()
+    }
   }
 
   async play() {
@@ -44,17 +46,24 @@ export class Sonar {
   }
 
   stop() {
+    this.dispatchEvent(
+      new CustomEvent("statechange", {
+        detail: {
+          state: "ended",
+        },
+      }),
+    )
     this.audioContext.close()
     this.clear()
   }
 
   clear() {
-    clear(this.tracks)
+    for (const track of this.tracks) {
+      track.clear?.()
+    }
   }
 
   pause() {
     this.audioContext.suspend()
   }
-
-  onEnded?: () => void
 }
