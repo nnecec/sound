@@ -1,7 +1,6 @@
 import type { TrackConfigs } from "../sonar"
 
 export const tracks: TrackConfigs = [
-  // 第一句话
   {
     startTime: 0,
     src: "/assets/sunflower-street-drumloop-85bpm-163900.mp3",
