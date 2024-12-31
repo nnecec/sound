@@ -1,11 +1,11 @@
-'use client'
+"use client"
 
-import { Sonar } from './sonar'
-import { useState } from 'react'
-import { useInterval } from '@reactuses/core'
-import { tracks } from './utils/data'
+import { Sonar } from "./sonar"
+import { useState } from "react"
+import { useInterval } from "@reactuses/core"
+import { tracks } from "./utils/data"
 
-const sonar = await Sonar.create(tracks)
+const sonar = new Sonar(tracks)
 
 function App() {
   const [interval, setInterval] = useState<number | null>(null)
@@ -18,11 +18,11 @@ function App() {
   const isPlaying = !!interval
 
   return (
-    <div className='container py-10 mx-auto '>
-      <div className='flex gap-3'>
+    <div className="container py-10 mx-auto ">
+      <div className="flex gap-3">
         <button
-          type='button'
-          className='btn'
+          type="button"
+          className="btn"
           onClick={async () => {
             if (isPlaying) {
               sonar.pause()
@@ -33,11 +33,11 @@ function App() {
             }
           }}
         >
-          {isPlaying ? 'Pause' : 'Play'}
+          {isPlaying ? "Pause" : "Play"}
         </button>
         <button
-          type='button'
-          className='btn'
+          type="button"
+          className="btn"
           onClick={() => {
             sonar.stop()
             setInterval(null)
@@ -47,13 +47,13 @@ function App() {
           Stop
         </button>
         <input
-          type='range'
+          type="range"
           min={0.2}
           max={2}
           step={0.1}
-          className='range'
-          onChange={e => {
-            sonar.control('playbackRate', Number(e.target.value))
+          className="range"
+          onChange={(e) => {
+            sonar.control("playbackRate", Number(e.target.value))
           }}
         />
       </div>

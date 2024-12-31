@@ -1,9 +1,10 @@
+import { Sonar } from "./sonar"
 import type { TrackConfig } from "./type"
 import { buildMediaElementFromUrl } from "./utils"
 
 export class Track {
   audioBuffer?: AudioBuffer
-  audio?: HTMLAudioElement
+  audio: HTMLAudioElement
   startTime: number
   endTime: number = Number.MAX_SAFE_INTEGER
   duration?: number
@@ -11,17 +12,29 @@ export class Track {
   fadeOutDuration?: number
   timer?: number
   volume: number
-  src?: string
+  src: string
+  rate?: number = 1
+  sonar: Sonar
 
-  constructor(track: TrackConfig) {
+  constructor(track: TrackConfig, sonar: Sonar) {
     this.src = track.src
     this.startTime = track.startTime
     this.fadeInDuration = track.fadeInDuration
     this.fadeOutDuration = track.fadeOutDuration
     this.volume = track.volume ?? 1
+    this.sonar = sonar
+    this.audio = new Audio()
+    this.audio.src = this.src
+    this.audio.volume = this.volume * this.sonar.volume
+    this.audio.load()
+    this.audio.addEventListener("canplaythrough", this.onload)
   }
 
-  async prepare(audioContext: AudioContext) {
+  onload = () => {
+    this.audio.removeEventListener("canplaythrough", this.onload)
+  }
+
+  async setup(audioContext: AudioContext) {
     if (this.src !== undefined) {
       const audio = buildMediaElementFromUrl(this.src)
       audio.currentTime = 0

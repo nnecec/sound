@@ -1,23 +1,20 @@
 import { Track } from "./track"
-import type { Tracks, TrackConfigs, State } from "./type"
+import type { Tracks, TrackConfigs } from "./type"
 
 export class Sonar extends EventTarget {
   trackConfigs: TrackConfigs
   tracks: Tracks = []
-  #state: State = "pending"
+  #state: AudioContext["state"] = "closed"
   #audioContext?: AudioContext
   playbackRate = 1
-
-  static async create(trackConfigs: TrackConfigs) {
-    const sonar = new Sonar(trackConfigs)
-    sonar.buildMixedTracks()
-    return sonar
-  }
+  volume = 1
 
   constructor(trackConfigs: TrackConfigs) {
     super()
     this.validateTrackConfigs(trackConfigs)
     this.trackConfigs = trackConfigs
+    this.buildMixedTracks()
+    this.#audioContext = new AudioContext()
   }
 
   validateTrackConfigs(trackConfigs: TrackConfigs) {
@@ -43,21 +40,19 @@ export class Sonar extends EventTarget {
   }
 
   async play() {
-    if (this.#state === "pending" || this.#state === "ended") {
+    if (this.#state === "closed") {
       this.#audioContext = new AudioContext()
+      this.#state = this.#audioContext.state
       await this.prepare(this.#audioContext)
     }
-    this.#state = "playing"
     this.#audioContext?.resume()
   }
 
   pause() {
-    this.#state = "paused"
     this.#audioContext?.suspend()
   }
 
   stop() {
-    this.#state = "ended"
     this.#audioContext?.close()
     this.#audioContext = undefined
     this.dispatchEvent(

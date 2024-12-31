@@ -3,6 +3,7 @@ import type { TrackConfigs } from "../sonar"
 export const tracks: TrackConfigs = [
   {
     startTime: 0,
+    endTime: 10.56,
     src: "/assets/sunflower-street-drumloop-85bpm-163900.mp3",
     fadeInDuration: 4,
     fadeOutDuration: 4,
