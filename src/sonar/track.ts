@@ -26,44 +26,48 @@ export class Track {
     this.audio = new Audio()
     this.audio.src = this.src
     this.audio.volume = this.volume * this.sonar.volume
-    this.audio.load()
     this.audio.addEventListener("canplaythrough", this.onload)
   }
 
   onload = () => {
+    this.setup()
     this.audio.removeEventListener("canplaythrough", this.onload)
   }
 
-  async setup(audioContext: AudioContext) {
-    if (this.src !== undefined) {
-      const audio = buildMediaElementFromUrl(this.src)
-      audio.currentTime = 0
-      audio.volume = this.volume
+  async setup() {
+    this.audio.load()
+    const audio = buildMediaElementFromUrl(this.src)
+    audio.currentTime = 0
+    audio.volume = this.volume
 
-      const source = audioContext.createMediaElementSource(audio)
-      if (this.fadeInDuration || this.fadeOutDuration) {
-        const gainNode = audioContext.createGain()
+    const source = this.sonar.audioContext.createMediaElementSource(audio)
+    if (this.fadeInDuration || this.fadeOutDuration) {
+      const gainNode = this.sonar.audioContext.createGain()
 
-        if (this.fadeInDuration) {
-          gainNode.gain.setValueAtTime(0, this.startTime)
-          gainNode.gain.linearRampToValueAtTime(
-            this.volume,
-            this.startTime + this.fadeInDuration,
-          )
-        }
-        // if (this.fadeOutDuration) {
-        //   gainNode.gain.linearRampToValueAtTime(
-        //     0,
-        //     this.endTime - this.fadeOutDuration,
-        //   )
-        //   gainNode.gain.setValueAtTime(0, this.endTime)
-        // }
-        source.connect(gainNode)
-        gainNode.connect(audioContext.destination)
-      } else {
-        source.connect(audioContext.destination)
+      if (this.fadeInDuration) {
+        gainNode.gain.setValueAtTime(0, this.startTime)
+        gainNode.gain.linearRampToValueAtTime(
+          this.volume,
+          this.startTime + this.fadeInDuration,
+        )
       }
-      const delay = Math.max(0, this.startTime - audioContext.currentTime)
+      // if (this.fadeOutDuration) {
+      //   gainNode.gain.linearRampToValueAtTime(
+      //     0,
+      //     this.endTime - this.fadeOutDuration,
+      //   )
+      //   gainNode.gain.setValueAtTime(0, this.endTime)
+      // }
+      source.connect(gainNode)
+      gainNode.connect(this.sonar.audioContext.destination)
+    } else {
+      source.connect(this.sonar.audioContext.destination)
+    }
+    const delay = Math.max(
+      0,
+      this.startTime - this.sonar.audioContext.currentTime,
+    )
+    this.play = () => {
       const timer = setTimeout(() => {
         audio.play()
       }, delay * 1000)
@@ -74,6 +78,8 @@ export class Track {
       }
     }
   }
+
+  play?: () => void
 
   clear?: () => void
 }
