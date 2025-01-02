@@ -1,17 +1,15 @@
-import { Sonar } from "./sonar"
+import type { Sonar } from "./sonar"
 import type { TrackConfig } from "./type"
-import { buildMediaElementFromUrl } from "./utils"
 
 export class Track {
-  audioBuffer?: AudioBuffer
-  audio: HTMLAudioElement
+  buffer?: ArrayBuffer
   startTime: number
   endTime: number = Number.MAX_SAFE_INTEGER
   duration?: number
   fadeInDuration?: number
   fadeOutDuration?: number
   timer?: number
-  volume: number
+  volume = 1
   src: string
   rate?: number = 1
   sonar: Sonar
@@ -21,28 +19,27 @@ export class Track {
     this.startTime = track.startTime
     this.fadeInDuration = track.fadeInDuration
     this.fadeOutDuration = track.fadeOutDuration
-    this.volume = track.volume ?? 1
+    this.volume = track.volume ?? this.volume
     this.sonar = sonar
-    this.audio = new Audio()
-    this.audio.src = this.src
-    this.audio.volume = this.volume * this.sonar.volume
-    this.audio.addEventListener("canplaythrough", this.onload)
   }
 
-  onload = () => {
-    this.setup()
-    this.audio.removeEventListener("canplaythrough", this.onload)
-  }
+  async setup({
+    audioContext,
+    gainNode: mainGainNode,
+  }: { audioContext: AudioContext; gainNode: GainNode }) {
+    const response = await fetch(this.src)
+    this.buffer = await response.arrayBuffer()
+    const audioBuffer = await audioContext.decodeAudioData(this.buffer)
+    this.sonar.duration = Math.max(
+      this.sonar.duration ?? 0,
+      this.startTime + audioBuffer.duration,
+    )
+    const source = audioContext.createBufferSource()
+    source.buffer = audioBuffer
+    source.start(this.startTime)
 
-  async setup() {
-    this.audio.load()
-    const audio = buildMediaElementFromUrl(this.src)
-    audio.currentTime = 0
-    audio.volume = this.volume
-
-    const source = this.sonar.audioContext.createMediaElementSource(audio)
     if (this.fadeInDuration || this.fadeOutDuration) {
-      const gainNode = this.sonar.audioContext.createGain()
+      const gainNode = audioContext.createGain()
 
       if (this.fadeInDuration) {
         gainNode.gain.setValueAtTime(0, this.startTime)
@@ -51,35 +48,16 @@ export class Track {
           this.startTime + this.fadeInDuration,
         )
       }
-      // if (this.fadeOutDuration) {
-      //   gainNode.gain.linearRampToValueAtTime(
-      //     0,
-      //     this.endTime - this.fadeOutDuration,
-      //   )
-      //   gainNode.gain.setValueAtTime(0, this.endTime)
-      // }
-      source.connect(gainNode)
-      gainNode.connect(this.sonar.audioContext.destination)
-    } else {
-      source.connect(this.sonar.audioContext.destination)
-    }
-    const delay = Math.max(
-      0,
-      this.startTime - this.sonar.audioContext.currentTime,
-    )
-    this.play = () => {
-      const timer = setTimeout(() => {
-        audio.play()
-      }, delay * 1000)
-
-      this.clear = () => {
-        clearTimeout(timer)
-        this.clear = undefined
+      if (this.fadeOutDuration) {
+        gainNode.gain.linearRampToValueAtTime(
+          0,
+          audioBuffer.duration - this.fadeOutDuration,
+        )
       }
+      source.connect(gainNode)
+      gainNode.connect(mainGainNode)
+    } else {
+      source.connect(mainGainNode)
     }
   }
-
-  play?: () => void
-
-  clear?: () => void
 }

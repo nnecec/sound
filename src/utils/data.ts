@@ -5,9 +5,9 @@ export const tracks: TrackConfigs = [
     startTime: 0,
     endTime: 10.56,
     src: "/assets/sunflower-street-drumloop-85bpm-163900.mp3",
-    fadeInDuration: 4,
-    fadeOutDuration: 4,
-    volume: 0.5,
+    fadeInDuration: 2,
+    fadeOutDuration: 2,
+    volume: 0.6,
   },
   {
     startTime: 4.34,
@@ -33,6 +33,7 @@ export const tracks: TrackConfigs = [
   {
     startTime: 24.42,
     src: "/assets/relaxing-guitar-loop-v5-245859.mp3",
-    fadeInDuration: 4, // 渐入结束时间
+    fadeInDuration: 4,
+    fadeOutDuration: 4,
   },
 ]
