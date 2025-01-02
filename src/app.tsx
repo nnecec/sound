@@ -1,14 +1,11 @@
-"use client"
+'use client'
 
-import { Sonar } from "./sonar"
-import { useState } from "react"
-import { useInterval } from "@reactuses/core"
-import { tracks } from "./utils/data"
+import { Sonar } from './sonar'
+import { useState } from 'react'
+import { useInterval } from '@reactuses/core'
+import { tracks } from './utils/data'
 
 const sonar = new Sonar(tracks)
-sonar.addEventListener("statechange", (ev) => {
-  console.log(ev)
-})
 
 function App() {
   const [interval, setInterval] = useState<number | null>(null)
@@ -22,11 +19,11 @@ function App() {
   const isPlaying = !!interval
 
   return (
-    <div className="container py-10 mx-auto ">
-      <div className="flex gap-3">
+    <div className='container py-10 mx-auto '>
+      <div className='flex gap-3'>
         <button
-          type="button"
-          className="btn"
+          type='button'
+          className='btn'
           onClick={async () => {
             if (isPlaying) {
               sonar.pause()
@@ -38,11 +35,11 @@ function App() {
             }
           }}
         >
-          {isPlaying ? "Pause" : "Play"}
+          {isPlaying ? 'Pause' : 'Play'}
         </button>
         <button
-          type="button"
-          className="btn"
+          type='button'
+          className='btn'
           onClick={() => {
             sonar.stop()
             setInterval(null)
@@ -53,20 +50,20 @@ function App() {
         </button>
 
         <div>
-          <label className="label">
+          <label className='label'>
             音量
             <input
-              type="range"
+              type='range'
               min={0}
               max={100}
               step={1}
-              className="range"
-              onChange={(e) => {
-                sonar.setVolume(Number(e.target.value) / 100)
+              className='range'
+              onChange={e => {
+                sonar.volume = Number(e.target.value) / 100
               }}
             />
           </label>
-          <div className="flex w-full justify-between px-2 text-xs">
+          <div className='flex w-full justify-between px-2 text-xs'>
             <span>0</span>
             <span>100</span>
           </div>
@@ -74,20 +71,20 @@ function App() {
       </div>
       <div>计时: {count} 秒</div>
       <div>
-        <label className="label">
+        <label className='label'>
           进度
           <input
-            type="range"
+            type='range'
             min={0}
             max={100}
             step={0.1}
-            className="range"
-            onChange={(e) => {
+            className='range'
+            onChange={e => {
               sonar.seek((Number(e.target.value) / 100) * maxTime) // 切到多少秒
             }}
           />
         </label>
-        <div className="flex w-full justify-between px-2 text-xs">
+        <div className='flex w-full justify-between px-2 text-xs'>
           <span>0</span>
           <span>{maxTime}</span>
         </div>

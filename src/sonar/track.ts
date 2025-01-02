@@ -40,6 +40,7 @@ export class Track {
 
     if (this.fadeInDuration || this.fadeOutDuration) {
       const gainNode = audioContext.createGain()
+      console.log(audioBuffer.duration)
 
       if (this.fadeInDuration) {
         gainNode.gain.setValueAtTime(0, this.startTime)
@@ -50,9 +51,10 @@ export class Track {
       }
       if (this.fadeOutDuration) {
         gainNode.gain.linearRampToValueAtTime(
-          0,
+          1,
           audioBuffer.duration - this.fadeOutDuration,
-        )
+        ) // 保持音量为 1
+        gainNode.gain.linearRampToValueAtTime(0, audioBuffer.duration)
       }
       source.connect(gainNode)
       gainNode.connect(mainGainNode)

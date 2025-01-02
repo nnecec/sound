@@ -1,14 +1,15 @@
+import { Emitter, EventType } from "./emitter"
 import { Track } from "./track"
 import type { Tracks, TrackConfigs } from "./type"
 
-export class Sonar extends EventTarget {
+export class Sonar<T extends Record<EventType, unknown>> extends Emitter<T> {
   trackConfigs: TrackConfigs
   tracks: Tracks = []
   audioContext?: AudioContext
   gainNode?: GainNode
   rate = 1
-  volume = 1
   duration = 0
+  #volume = 1
 
   constructor(trackConfigs: TrackConfigs) {
     super()
@@ -28,6 +29,15 @@ export class Sonar extends EventTarget {
       }
     }
   }
+  set volume(volume: number) {
+    this.#volume = volume
+    if (this.gainNode) {
+      this.gainNode.gain.value = volume
+    }
+  }
+  get volume() {
+    return this.#volume
+  }
 
   async setup({
     audioContext,
@@ -44,10 +54,9 @@ export class Sonar extends EventTarget {
       this.audioContext = audioContext
       const gainNode = audioContext.createGain()
       this.gainNode = gainNode
-      gainNode.gain.value = this.volume
+      gainNode.gain.value = this.#volume
       await this.setup({ audioContext, gainNode })
       gainNode.connect(audioContext.destination)
-      audioContext.addEventListener("statechange", this.onStateChange)
     }
     this.audioContext.resume()
   }
@@ -59,22 +68,8 @@ export class Sonar extends EventTarget {
   }
 
   stop() {
-    this.removeEventListener("statechange", this.onStateChange)
     this.audioContext?.close()
     this.#clear()
-  }
-
-  onStateChange = () => {
-    this.dispatchEvent(
-      new CustomEvent("statechange", { detail: this.audioContext?.state }),
-    )
-  }
-
-  setVolume(volume: number) {
-    this.volume = volume
-    if (this.gainNode) {
-      this.gainNode.gain.value = volume
-    }
   }
 
   #clear() {
