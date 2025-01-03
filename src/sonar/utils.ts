@@ -1,30 +1,11 @@
-export async function buildAudioBufferFromUrl(
-  src: string,
-): Promise<AudioBuffer> {
-  const audioContext = new AudioContext()
-  const response = await fetch(src)
-  if (!response.ok) {
-    throw new Error(`Failed to load track: ${src}`)
-  }
-  const arrayBuffer = await response.arrayBuffer()
-  return await audioContext.decodeAudioData(arrayBuffer)
-}
+import { LRUCache } from "lru-cache"
 
-export function buildMediaElementFromUrl(src: string): HTMLMediaElement {
-  const audio = new Audio(src)
-  return audio
-}
-
-/**
- * TODO
- *
- * @param stream
- * @returns
- */
-export async function buildMediaStreamSourceFromStream(
-  stream: MediaStream,
-): Promise<MediaStreamAudioSourceNode> {
-  const audioContext = new AudioContext()
-  const mediaStreamSource = audioContext.createMediaStreamSource(stream)
-  return mediaStreamSource
+export function createCache() {
+  return new LRUCache<string, AudioBuffer>({
+    max: 500,
+    ttl: 1000 * 60 * 5,
+    allowStale: false,
+    updateAgeOnGet: true,
+    updateAgeOnHas: true,
+  })
 }

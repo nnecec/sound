@@ -1,23 +1,27 @@
-import { Emitter, EventType } from "./emitter"
+import { Emitter } from "./emitter"
 import { Track } from "./track"
-import type { Tracks, TrackConfigs } from "./type"
+import type { Tracks, TrackConfigs, Events } from "./type"
+import { createCache } from "./utils"
 
-export class Sonar<T extends Record<EventType, unknown>> extends Emitter<T> {
+export class Sonar extends Emitter<Events> {
   trackConfigs: TrackConfigs
   tracks: Tracks = []
-  audioContext?: AudioContext
-  gainNode?: GainNode
+  audioContext: AudioContext = new AudioContext()
+  gainNode: GainNode
+  state: "unloaded" | "loading" | "loaded" = "unloaded"
+  preload = true
+  #volume = 1
   rate = 1
   duration = 0
-  #volume = 1
+  cache = createCache()
+  playlist = new Map()
 
   constructor(trackConfigs: TrackConfigs) {
     super()
     this.validateTrackConfigs(trackConfigs)
     this.trackConfigs = trackConfigs
-    for (const i in this.trackConfigs) {
-      this.tracks[i] = new Track(this.trackConfigs[i], this)
-    }
+    this.gainNode = this.audioContext.createGain()
+    this.initialize()
   }
 
   validateTrackConfigs(trackConfigs: TrackConfigs) {
@@ -29,51 +33,60 @@ export class Sonar<T extends Record<EventType, unknown>> extends Emitter<T> {
       }
     }
   }
+
+  initialize() {
+    this.tracks = this.trackConfigs.map((track) => {
+      return new Track(track, this)
+    })
+    this.gainNode.gain.value = this.#volume
+  }
+
+  async setup() {
+    await Promise.all(this.tracks.map((track) => track.setup()))
+  }
+
   set volume(volume: number) {
     this.#volume = volume
-    if (this.gainNode) {
-      this.gainNode.gain.value = volume
-    }
+    this.gainNode.gain.value = volume
+    this.emit("volume", volume)
   }
+
   get volume() {
     return this.#volume
   }
 
-  async setup({
-    audioContext,
-    gainNode,
-  }: { audioContext: AudioContext; gainNode: GainNode }) {
-    for (const track of this.tracks) {
-      await track.setup({ audioContext, gainNode })
-    }
-  }
-
   async play() {
-    if (!this.audioContext) {
-      const audioContext = new AudioContext()
-      this.audioContext = audioContext
-      const gainNode = audioContext.createGain()
-      this.gainNode = gainNode
-      gainNode.gain.value = this.#volume
-      await this.setup({ audioContext, gainNode })
-      gainNode.connect(audioContext.destination)
+    if (this.state === "unloaded") {
+      await this.setup()
+      this.state = "loaded"
+      this.gainNode.connect(this.audioContext.destination)
     }
+    this.emit("play")
     this.audioContext.resume()
   }
 
   pause() {
     if (this.audioContext) {
       this.audioContext.suspend()
+      this.emit("pause")
     }
   }
 
   stop() {
-    this.audioContext?.close()
+    this.emit("stop")
     this.#clear()
   }
 
   #clear() {
-    this.audioContext = undefined
     this.duration = 0
+    this.all = new Map()
+    this.playlist = new Map()
+    this.state = "unloaded"
+  }
+
+  destroy() {
+    this.audioContext.close()
+    this.pause()
+    this.#clear()
   }
 }

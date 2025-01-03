@@ -1,8 +1,7 @@
 import type { Sonar } from "./sonar"
-import type { TrackConfig } from "./type"
 
 export class Track {
-  buffer?: ArrayBuffer
+  audioBuffer?: AudioBuffer
   startTime: number
   endTime: number = Number.MAX_SAFE_INTEGER
   duration?: number
@@ -13,53 +12,83 @@ export class Track {
   src: string
   rate?: number = 1
   sonar: Sonar
+  preload: boolean | "metadata" = true
 
-  constructor(track: TrackConfig, sonar: Sonar) {
+  constructor(track: Track, sonar: Sonar) {
     this.src = track.src
     this.startTime = track.startTime
     this.fadeInDuration = track.fadeInDuration
     this.fadeOutDuration = track.fadeOutDuration
     this.volume = track.volume ?? this.volume
     this.sonar = sonar
+    this.preload = track.preload ?? sonar.preload
+    this.sonar.playlist.set(this.src, true)
+    if (this.preload === true) {
+      this.load()
+    }
   }
 
-  async setup({
-    audioContext,
-    gainNode: mainGainNode,
-  }: { audioContext: AudioContext; gainNode: GainNode }) {
+  async load() {
+    if (this.sonar.cache.has(this.src)) {
+      this.audioBuffer = this.sonar.cache.get(this.src)
+      return
+    }
+
     const response = await fetch(this.src)
-    this.buffer = await response.arrayBuffer()
-    const audioBuffer = await audioContext.decodeAudioData(this.buffer)
-    this.sonar.duration = Math.max(
-      this.sonar.duration ?? 0,
-      this.startTime + audioBuffer.duration,
-    )
-    const source = audioContext.createBufferSource()
-    source.buffer = audioBuffer
-    source.start(this.startTime)
+    const arrayBuffer = await response.arrayBuffer()
+    this.audioBuffer =
+      await this.sonar.audioContext.decodeAudioData(arrayBuffer)
+    this.sonar.cache.set(this.src, this.audioBuffer)
+  }
 
-    if (this.fadeInDuration || this.fadeOutDuration) {
-      const gainNode = audioContext.createGain()
-      console.log(audioBuffer.duration)
+  async setup() {
+    if (!this.audioBuffer) {
+      await this.setup()
+    }
 
-      if (this.fadeInDuration) {
-        gainNode.gain.setValueAtTime(0, this.startTime)
-        gainNode.gain.linearRampToValueAtTime(
-          this.volume,
-          this.startTime + this.fadeInDuration,
-        )
+    if (this.audioBuffer) {
+      console.log(this.src)
+
+      this.sonar.duration = Math.max(
+        this.sonar.duration ?? 0,
+        this.startTime + this.audioBuffer.duration,
+      )
+      const source = this.sonar.audioContext.createBufferSource()
+      source.buffer = this.audioBuffer
+      source.start(this.startTime, 0, this.audioBuffer.duration)
+
+      const gainNode = this.sonar.audioContext.createGain()
+      if (this.fadeInDuration || this.fadeOutDuration) {
+        if (this.fadeInDuration) {
+          gainNode.gain.setValueAtTime(0, this.startTime)
+          gainNode.gain.linearRampToValueAtTime(
+            this.volume,
+            this.startTime + this.fadeInDuration,
+          )
+        }
+        if (this.fadeOutDuration) {
+          gainNode.gain.linearRampToValueAtTime(
+            1,
+            this.audioBuffer.duration - this.fadeOutDuration,
+          ) // 保持音量为 1
+          gainNode.gain.linearRampToValueAtTime(0, this.audioBuffer.duration)
+        }
+        source.connect(gainNode)
+        gainNode.connect(this.sonar.gainNode)
+      } else {
+        source.connect(this.sonar.gainNode)
       }
-      if (this.fadeOutDuration) {
-        gainNode.gain.linearRampToValueAtTime(
-          1,
-          audioBuffer.duration - this.fadeOutDuration,
-        ) // 保持音量为 1
-        gainNode.gain.linearRampToValueAtTime(0, audioBuffer.duration)
+
+      const onEnded = () => {
+        this.sonar.playlist.delete(this.src)
+        source.removeEventListener("ended", onEnded)
+        source.disconnect()
+        gainNode.disconnect()
+        if (this.sonar.playlist.size === 0) {
+          this.sonar.emit("end")
+        }
       }
-      source.connect(gainNode)
-      gainNode.connect(mainGainNode)
-    } else {
-      source.connect(mainGainNode)
+      source.addEventListener("ended", onEnded)
     }
   }
 }

@@ -4,19 +4,21 @@ export type SonarConfig = {
   playbackRate?: number
 }
 
-export type TrackConfig = {
-  src: string
-  startTime: number
-  endTime: number
-  fadeInDuration?: number
-  fadeOutDuration?: number
-  volume?: number
-}
-
-export type TrackConfigs = TrackConfig[]
+export type TrackConfigs = Track[]
 
 export type Mixed = {
   nodes: AudioBuffer[]
 }
 
 export type Tracks = Track[]
+
+export type Events = {
+  progress: number
+  volume: number
+  play: undefined
+  pause: undefined
+  stop: undefined
+  end: undefined
+  loaded: undefined
+  loading: undefined
+}
