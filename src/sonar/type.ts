@@ -19,6 +19,7 @@ export type Events = {
   pause: undefined
   stop: undefined
   end: undefined
+  destroy: undefined
   loaded: undefined
   loading: undefined
 }

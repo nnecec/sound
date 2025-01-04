@@ -13,6 +13,7 @@ export class Track {
   rate?: number = 1
   sonar: Sonar
   preload: boolean | "metadata" = true
+  nodes?: Array<AudioBufferSourceNode | GainNode | null>
 
   constructor(track: Track, sonar: Sonar) {
     this.src = track.src
@@ -54,24 +55,29 @@ export class Track {
         this.startTime + this.audioBuffer.duration,
       )
       const source = this.sonar.audioContext.createBufferSource()
+      this.nodes = [source]
       source.buffer = this.audioBuffer
-      source.start(this.startTime, 0, this.audioBuffer.duration)
+      const startTime = this.sonar.audioContext.currentTime + this.startTime
+      source.start(startTime, 0, this.audioBuffer.duration)
 
       const gainNode = this.sonar.audioContext.createGain()
       if (this.fadeInDuration || this.fadeOutDuration) {
         if (this.fadeInDuration) {
-          gainNode.gain.setValueAtTime(0, this.startTime)
+          gainNode.gain.setValueAtTime(0, startTime)
           gainNode.gain.linearRampToValueAtTime(
             this.volume,
-            this.startTime + this.fadeInDuration,
+            startTime + this.fadeInDuration,
           )
         }
         if (this.fadeOutDuration) {
           gainNode.gain.linearRampToValueAtTime(
             1,
-            this.audioBuffer.duration - this.fadeOutDuration,
+            startTime + this.audioBuffer.duration - this.fadeOutDuration,
           ) // 保持音量为 1
-          gainNode.gain.linearRampToValueAtTime(0, this.audioBuffer.duration)
+          gainNode.gain.linearRampToValueAtTime(
+            0,
+            startTime + this.audioBuffer.duration,
+          )
         }
         source.connect(gainNode)
         gainNode.connect(this.sonar.gainNode)
@@ -89,6 +95,15 @@ export class Track {
         }
       }
       source.addEventListener("ended", onEnded)
+    }
+  }
+  async clear() {
+    if (this.nodes) {
+      for (let n of this.nodes) {
+        n?.disconnect()
+        n = null
+      }
+      this.nodes = []
     }
   }
 }

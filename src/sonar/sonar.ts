@@ -73,20 +73,26 @@ export class Sonar extends Emitter<Events> {
   }
 
   stop() {
-    this.emit("stop")
-    this.#clear()
+    if (this.audioContext) {
+      this.audioContext.suspend()
+      this.emit("stop")
+      this.#clear()
+    }
   }
 
   #clear() {
-    this.duration = 0
+    for (const track of this.tracks) {
+      track.clear()
+    }
     this.all = new Map()
     this.playlist = new Map()
+    this.duration = 0
     this.state = "unloaded"
   }
 
   destroy() {
     this.audioContext.close()
-    this.pause()
+    this.emit("destroy")
     this.#clear()
   }
 }
