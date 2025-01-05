@@ -11,7 +11,7 @@ export class Sonar extends Emitter<Events> {
   state: "unloaded" | "loading" | "loaded" = "unloaded"
   preload = true
   #volume = 1
-  rate = 1
+  #rate = 1
   duration = 0
   cache = createCache()
   playlist = new Map()
@@ -39,6 +39,12 @@ export class Sonar extends Emitter<Events> {
       return new Track(track, this)
     })
     this.gainNode.gain.value = this.#volume
+    this.on("end", () => {
+      console.log("internal end")
+
+      this.audioContext.suspend()
+      this.#clear()
+    })
   }
 
   async setup() {
@@ -53,6 +59,18 @@ export class Sonar extends Emitter<Events> {
 
   get volume() {
     return this.#volume
+  }
+
+  set rate(rate: number) {
+    this.#rate = rate
+    for (const track of this.tracks) {
+      track.rate = rate
+    }
+    this.emit("rate", rate)
+  }
+
+  get rate() {
+    return this.#rate
   }
 
   async play() {
@@ -91,8 +109,8 @@ export class Sonar extends Emitter<Events> {
   }
 
   destroy() {
+    this.#clear()
     this.audioContext.close()
     this.emit("destroy")
-    this.#clear()
   }
 }

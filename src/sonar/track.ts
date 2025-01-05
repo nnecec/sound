@@ -10,7 +10,7 @@ export class Track {
   timer?: number
   volume = 1
   src: string
-  rate?: number = 1
+  #rate = 1
   sonar: Sonar
   preload: boolean | "metadata" = true
   nodes?: Array<AudioBufferSourceNode | GainNode | null>
@@ -23,7 +23,6 @@ export class Track {
     this.volume = track.volume ?? this.volume
     this.sonar = sonar
     this.preload = track.preload ?? sonar.preload
-    this.sonar.playlist.set(this.src, true)
     if (this.preload === true) {
       this.load()
     }
@@ -34,7 +33,7 @@ export class Track {
       this.audioBuffer = this.sonar.cache.get(this.src)
       return
     }
-
+    this.sonar.playlist.set(this.src, true)
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
     this.audioBuffer =
@@ -44,12 +43,10 @@ export class Track {
 
   async setup() {
     if (!this.audioBuffer) {
-      await this.setup()
+      await this.load()
     }
 
     if (this.audioBuffer) {
-      console.log(this.src)
-
       this.sonar.duration = Math.max(
         this.sonar.duration ?? 0,
         this.startTime + this.audioBuffer.duration,
@@ -57,6 +54,7 @@ export class Track {
       const source = this.sonar.audioContext.createBufferSource()
       this.nodes = [source]
       source.buffer = this.audioBuffer
+      source.playbackRate.value = this.#rate
       const startTime = this.sonar.audioContext.currentTime + this.startTime
       source.start(startTime, 0, this.audioBuffer.duration)
 
@@ -73,7 +71,7 @@ export class Track {
           gainNode.gain.linearRampToValueAtTime(
             1,
             startTime + this.audioBuffer.duration - this.fadeOutDuration,
-          ) // 保持音量为 1
+          )
           gainNode.gain.linearRampToValueAtTime(
             0,
             startTime + this.audioBuffer.duration,
@@ -105,5 +103,18 @@ export class Track {
       }
       this.nodes = []
     }
+  }
+  set rate(rate: number) {
+    this.#rate = rate
+    if (this.nodes) {
+      for (const n of this.nodes) {
+        if (n instanceof AudioBufferSourceNode) {
+          n.playbackRate.value = rate
+        }
+      }
+    }
+  }
+  get rate() {
+    return this.#rate
   }
 }

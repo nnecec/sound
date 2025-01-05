@@ -22,4 +22,5 @@ export type Events = {
   destroy: undefined
   loaded: undefined
   loading: undefined
+  rate: number
 }
