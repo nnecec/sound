@@ -8,8 +8,9 @@ export class Sonar extends Emitter<Events> {
   tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
-  state: "unloaded" | "loading" | "loaded" = "unloaded"
+  state: "unmounted" | "mounted" = "unmounted"
   preload = true
+  currentTime = 0
   #volume = 1
   #rate = 1
   duration = 0
@@ -41,13 +42,13 @@ export class Sonar extends Emitter<Events> {
     this.gainNode.gain.value = this.#volume
     this.on("end", () => {
       console.log("internal end")
-
       this.audioContext.suspend()
       this.#clear()
     })
   }
 
   async setup() {
+    this.currentTime = this.audioContext.currentTime
     await Promise.all(this.tracks.map((track) => track.setup()))
   }
 
@@ -74,9 +75,9 @@ export class Sonar extends Emitter<Events> {
   }
 
   async play() {
-    if (this.state === "unloaded") {
+    if (this.state === "unmounted") {
       await this.setup()
-      this.state = "loaded"
+      this.state = "mounted"
       this.gainNode.connect(this.audioContext.destination)
     }
     this.emit("play")
@@ -98,18 +99,28 @@ export class Sonar extends Emitter<Events> {
     }
   }
 
+  async seek(time: number) {
+    if (this.audioContext) {
+      this.audioContext.suspend()
+      this.#clear()
+      this.currentTime = this.audioContext.currentTime
+      await Promise.all(this.tracks.map((track) => track.setup(time)))
+      this.audioContext.resume()
+    }
+  }
+
   #clear() {
     for (const track of this.tracks) {
       track.clear()
     }
-    this.all = new Map()
     this.playlist = new Map()
-    this.duration = 0
-    this.state = "unloaded"
+    this.state = "unmounted"
   }
 
   destroy() {
     this.#clear()
+    this.all = new Map()
+    this.duration = 0
     this.audioContext.close()
     this.emit("destroy")
   }

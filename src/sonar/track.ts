@@ -41,7 +41,7 @@ export class Track {
     this.sonar.cache.set(this.src, this.audioBuffer)
   }
 
-  async setup() {
+  async setup(offset = 0) {
     if (!this.audioBuffer) {
       await this.load()
     }
@@ -52,13 +52,17 @@ export class Track {
         this.startTime + this.audioBuffer.duration,
       )
       const source = this.sonar.audioContext.createBufferSource()
-      this.nodes = [source]
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
-      const startTime = this.sonar.audioContext.currentTime + this.startTime
-      source.start(startTime, 0, this.audioBuffer.duration)
+      const startTime = this.sonar.currentTime + this.startTime
+      if (this.startTime > offset) {
+        source.start(startTime - offset, 0)
+      } else {
+        source.start(0, offset - this.startTime)
+      }
 
       const gainNode = this.sonar.audioContext.createGain()
+      this.nodes = [source, gainNode]
       if (this.fadeInDuration || this.fadeOutDuration) {
         if (this.fadeInDuration) {
           gainNode.gain.setValueAtTime(0, startTime)
@@ -92,7 +96,7 @@ export class Track {
           this.sonar.emit("end")
         }
       }
-      source.addEventListener("ended", onEnded)
+      // source.addEventListener("ended", onEnded)
     }
   }
   async clear() {
