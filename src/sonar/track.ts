@@ -1,9 +1,9 @@
+import { add, ceil } from "mathjs"
 import type { Sonar } from "./sonar"
 
 export class Track {
   audioBuffer?: AudioBuffer
   startTime: number
-  endTime: number = Number.MAX_SAFE_INTEGER
   duration?: number
   fadeInDuration?: number
   fadeOutDuration?: number
@@ -33,12 +33,16 @@ export class Track {
       this.audioBuffer = this.sonar.cache.get(this.src)
       return
     }
-    this.sonar.playlist.set(this.src, true)
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
     this.audioBuffer =
       await this.sonar.audioContext.decodeAudioData(arrayBuffer)
     this.sonar.cache.set(this.src, this.audioBuffer)
+    const endTime = add(this.startTime, ceil(this.audioBuffer.duration, 2))
+    if (endTime > this.sonar.duration) {
+      this.sonar.duration = endTime
+      this.sonar.lastTrack = this
+    }
   }
 
   async setup(offset = 0) {
@@ -47,14 +51,10 @@ export class Track {
     }
 
     if (this.audioBuffer) {
-      this.sonar.duration = Math.max(
-        this.sonar.duration ?? 0,
-        this.startTime + this.audioBuffer.duration,
-      )
       const source = this.sonar.audioContext.createBufferSource()
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
-      const startTime = this.sonar.currentTime + this.startTime
+      const startTime = this.sonar.originTime + this.startTime
       if (this.startTime > offset) {
         source.start(startTime - offset, 0)
       } else {
@@ -81,6 +81,7 @@ export class Track {
             startTime + this.audioBuffer.duration,
           )
         }
+
         source.connect(gainNode)
         gainNode.connect(this.sonar.gainNode)
       } else {
@@ -88,15 +89,15 @@ export class Track {
       }
 
       const onEnded = () => {
-        this.sonar.playlist.delete(this.src)
+        this.sonar.emit("end")
         source.removeEventListener("ended", onEnded)
-        source.disconnect()
-        gainNode.disconnect()
-        if (this.sonar.playlist.size === 0) {
-          this.sonar.emit("end")
-        }
       }
-      // source.addEventListener("ended", onEnded)
+
+      console.log(this === this.sonar.lastTrack)
+
+      if (this === this.sonar.lastTrack) {
+        source.addEventListener("ended", onEnded)
+      }
     }
   }
   async clear() {

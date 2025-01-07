@@ -8,16 +8,15 @@ import { tracks } from "./utils/data"
 const sonar = new Sonar(tracks)
 function App() {
   const [interval, setInterval] = useState<number | null>(null)
-  const [count, setCount] = useState(0)
+  const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
 
   useInterval(() => {
-    setCount(count + 1)
+    setProgress(sonar.currentTime / sonar.duration)
   }, interval)
 
   useEffect(() => {
     const onPlay = () => {
-      console.log("play")
       setInterval(1000)
       setDuration(sonar.duration)
     }
@@ -26,28 +25,22 @@ function App() {
     }
     const onEnd = () => {
       setInterval(null)
-      setCount(0)
+      setProgress(0)
     }
     const onStop = () => {
       setInterval(null)
-      setCount(0)
-    }
-
-    const onProgress = (progress: number) => {
-      console.log("progress", progress)
+      setProgress(0)
     }
 
     sonar.on("play", onPlay)
     sonar.on("pause", onPause)
     sonar.on("stop", onStop)
     sonar.on("end", onEnd)
-    sonar.on("progress", onProgress)
     return () => {
       sonar.off("play", onPlay)
       sonar.off("pause", onPause)
       sonar.off("stop", onStop)
       sonar.off("end", onEnd)
-      sonar.off("progress", onProgress)
     }
   }, [sonar])
 
@@ -79,7 +72,6 @@ function App() {
           Stop
         </button>
       </div>
-      <div>计时: {count} 秒</div>
 
       <div>
         <label className="label w-full" htmlFor="volume">
@@ -127,7 +119,7 @@ function App() {
 
       <div>
         <label className="label w-full" htmlFor="progress">
-          进度(TODO)
+          进度
         </label>
         <input
           id="progress"
@@ -136,6 +128,10 @@ function App() {
           max={100}
           step={0.1}
           className="range w-full"
+          value={progress * 100}
+          onChange={(e) => {
+            setProgress(Number(e.target.value) / 100)
+          }}
           onMouseUp={async (e) => {
             await sonar.seek((Number(e.currentTarget.value) / 100) * duration) // 切到多少秒
           }}

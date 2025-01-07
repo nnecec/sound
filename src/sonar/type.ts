@@ -1,7 +1,8 @@
 import type { Track } from "./track"
 
 export type SonarConfig = {
-  playbackRate?: number
+  rate?: number
+  volume?: number
 }
 
 export type TrackConfigs = Track[]

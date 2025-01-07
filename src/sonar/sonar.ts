@@ -1,6 +1,6 @@
 import { Emitter } from "./emitter"
 import { Track } from "./track"
-import type { Tracks, TrackConfigs, Events } from "./type"
+import type { Tracks, TrackConfigs, Events, SonarConfig } from "./type"
 import { createCache } from "./utils"
 
 export class Sonar extends Emitter<Events> {
@@ -10,19 +10,20 @@ export class Sonar extends Emitter<Events> {
   gainNode: GainNode
   state: "unmounted" | "mounted" = "unmounted"
   preload = true
-  currentTime = 0
   #volume = 1
   #rate = 1
-  duration = 0
   cache = createCache()
-  playlist = new Map()
+  lastTrack: Track | null = null
+  originTime = 0
+  duration = 0
+  offset = 0
 
-  constructor(trackConfigs: TrackConfigs) {
+  constructor(trackConfigs: TrackConfigs, sonarConfig?: SonarConfig) {
     super()
     this.validateTrackConfigs(trackConfigs)
     this.trackConfigs = trackConfigs
     this.gainNode = this.audioContext.createGain()
-    this.initialize()
+    this.initialize(sonarConfig)
   }
 
   validateTrackConfigs(trackConfigs: TrackConfigs) {
@@ -35,20 +36,21 @@ export class Sonar extends Emitter<Events> {
     }
   }
 
-  initialize() {
+  initialize(sonarConfig?: SonarConfig) {
     this.tracks = this.trackConfigs.map((track) => {
       return new Track(track, this)
     })
+    this.#volume = sonarConfig?.volume ?? this.#volume
     this.gainNode.gain.value = this.#volume
+    this.rate = sonarConfig?.rate ?? this.#rate
     this.on("end", () => {
-      console.log("internal end")
       this.audioContext.suspend()
-      this.#clear()
+      this.#reset()
     })
   }
 
   async setup() {
-    this.currentTime = this.audioContext.currentTime
+    this.originTime = this.audioContext.currentTime
     await Promise.all(this.tracks.map((track) => track.setup()))
   }
 
@@ -95,30 +97,35 @@ export class Sonar extends Emitter<Events> {
     if (this.audioContext) {
       this.audioContext.suspend()
       this.emit("stop")
-      this.#clear()
+      this.#reset()
     }
   }
 
   async seek(time: number) {
     if (this.audioContext) {
       this.audioContext.suspend()
-      this.#clear()
-      this.currentTime = this.audioContext.currentTime
+      this.#reset()
+      this.originTime = this.audioContext.currentTime
       await Promise.all(this.tracks.map((track) => track.setup(time)))
       this.audioContext.resume()
+      this.offset = time
     }
   }
 
-  #clear() {
+  #reset() {
     for (const track of this.tracks) {
       track.clear()
     }
-    this.playlist = new Map()
     this.state = "unmounted"
+    this.offset = 0
+  }
+
+  get currentTime() {
+    return this.audioContext.currentTime - this.originTime + this.offset
   }
 
   destroy() {
-    this.#clear()
+    this.#reset()
     this.all = new Map()
     this.duration = 0
     this.audioContext.close()
