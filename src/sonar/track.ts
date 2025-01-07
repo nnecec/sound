@@ -93,8 +93,6 @@ export class Track {
         source.removeEventListener("ended", onEnded)
       }
 
-      console.log(this === this.sonar.lastTrack)
-
       if (this === this.sonar.lastTrack) {
         source.addEventListener("ended", onEnded)
       }
