@@ -49,9 +49,9 @@ export class Sonar extends Emitter<Events> {
     })
   }
 
-  async setup() {
+  async setup(offset = 0) {
     this.originTime = this.audioContext.currentTime
-    await Promise.all(this.tracks.map((track) => track.setup()))
+    await Promise.all(this.tracks.map((track) => track.setup(offset)))
   }
 
   set volume(volume: number) {
@@ -78,7 +78,7 @@ export class Sonar extends Emitter<Events> {
 
   async play() {
     if (this.state === "unmounted") {
-      await this.setup()
+      await this.setup(this.offset)
       this.state = "mounted"
       this.gainNode.connect(this.audioContext.destination)
     }
@@ -103,11 +103,14 @@ export class Sonar extends Emitter<Events> {
 
   async seek(time: number) {
     if (this.audioContext) {
-      this.audioContext.suspend()
+      let needResume = false
+      if (this.audioContext.state === "running") {
+        this.audioContext.suspend()
+        needResume = true
+      }
       this.#reset()
-      this.originTime = this.audioContext.currentTime
-      await Promise.all(this.tracks.map((track) => track.setup(time)))
-      this.audioContext.resume()
+      this.setup(time)
+      if (needResume) this.audioContext.resume()
       this.offset = time
     }
   }

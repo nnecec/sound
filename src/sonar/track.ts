@@ -89,6 +89,8 @@ export class Track {
       }
 
       const onEnded = () => {
+        console.log(this)
+
         this.sonar.emit("end")
         source.removeEventListener("ended", onEnded)
       }
