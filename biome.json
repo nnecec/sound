@@ -29,8 +29,9 @@
   },
   "javascript": {
     "formatter": {
-      "quoteStyle": "double",
-      "semicolons": "asNeeded"
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "jsxQuoteStyle": "double"
     }
   },
   "json": {

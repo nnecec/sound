@@ -100,7 +100,6 @@ export class Track {
   }
 
   onEnd = () => {
-    console.log("🚀 ~ Track ~ onEnd ~ this:", this)
     this.sonar.emit("end")
     this.clear()
   }

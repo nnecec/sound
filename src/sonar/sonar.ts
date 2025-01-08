@@ -1,14 +1,14 @@
-import { Emitter } from "./emitter"
-import { Track } from "./track"
-import type { Tracks, TrackConfigs, Events, SonarConfig } from "./type"
-import { createCache } from "./utils"
+import { Mitter } from './mitter'
+import { Track } from './track'
+import type { Tracks, TrackConfigs, Events, SonarConfig } from './type'
+import { createCache } from './utils'
 
-export class Sonar extends Emitter<Events> {
+export class Sonar extends Mitter<Events> {
   trackConfigs: TrackConfigs
   tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
-  state: "unmounted" | "mounted" = "unmounted"
+  state: 'unmounted' | 'mounted' = 'unmounted'
   preload = true
   #volume = 1
   #rate = 1
@@ -39,12 +39,12 @@ export class Sonar extends Emitter<Events> {
     this.#volume = sonarConfig?.volume ?? this.#volume
     this.gainNode.gain.value = this.#volume
     this.rate = sonarConfig?.rate ?? this.#rate
-    this.on("end", () => {
+    this.on('end', () => {
       this.audioContext.suspend()
-      this.state = "unmounted"
+      this.state = 'unmounted'
       this.#clear()
     })
-    this.on("load", () => {
+    this.on('load', () => {
       this.setup().then(() => {
         this.play()
       })
@@ -56,13 +56,13 @@ export class Sonar extends Emitter<Events> {
     this.gainNode.disconnect()
     await Promise.all(this.tracks.map((track) => track.setup()))
     this.gainNode.connect(this.audioContext.destination)
-    this.state = "mounted"
+    this.state = 'mounted'
   }
 
   set volume(volume: number) {
     this.#volume = volume
     this.gainNode.gain.value = volume
-    this.emit("volume", volume)
+    this.emit('volume', volume)
   }
 
   get volume() {
@@ -74,7 +74,7 @@ export class Sonar extends Emitter<Events> {
     for (const track of this.tracks) {
       track.rate = rate
     }
-    this.emit("rate", rate)
+    this.emit('rate', rate)
   }
 
   get rate() {
@@ -82,17 +82,17 @@ export class Sonar extends Emitter<Events> {
   }
 
   play() {
-    if (this.state === "unmounted") {
-      this.emit("load")
+    if (this.state === 'unmounted') {
+      this.emit('load')
       return
     }
-    this.emit("play")
+    this.emit('play')
     this.audioContext.resume()
   }
 
   pause() {
     if (this.audioContext) {
-      this.emit("pause")
+      this.emit('pause')
       this.audioContext.suspend()
     }
   }
@@ -100,8 +100,8 @@ export class Sonar extends Emitter<Events> {
   stop() {
     if (this.audioContext) {
       this.audioContext.suspend()
-      this.emit("stop")
-      this.state = "unmounted"
+      this.emit('stop')
+      this.state = 'unmounted'
       this.#clear()
     }
   }
@@ -109,7 +109,7 @@ export class Sonar extends Emitter<Events> {
   seek(time: number) {
     if (this.audioContext) {
       let needResume = false
-      if (this.audioContext.state === "running") {
+      if (this.audioContext.state === 'running') {
         this.audioContext.suspend()
         needResume = true
       }
@@ -135,10 +135,10 @@ export class Sonar extends Emitter<Events> {
 
   destroy() {
     this.#clear()
-    this.state = "unmounted"
+    this.state = 'unmounted'
     this.all = new Map()
     this.duration = 0
     this.audioContext.close()
-    this.emit("destroy")
+    this.emit('destroy')
   }
 }
