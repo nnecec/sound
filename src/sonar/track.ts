@@ -13,7 +13,8 @@ export class Track {
   #rate = 1
   sonar: Sonar
   preload: boolean | "metadata" = true
-  nodes?: Array<AudioBufferSourceNode | GainNode | null>
+  sourceNode?: AudioBufferSourceNode
+  gainNode?: GainNode
 
   constructor(track: Track, sonar: Sonar) {
     this.src = track.src
@@ -33,7 +34,9 @@ export class Track {
       this.audioBuffer = this.sonar.cache.get(this.src)
       return
     }
+    this.sonar.emit("loading")
     const response = await fetch(this.src)
+    this.sonar.emit("loaded")
     const arrayBuffer = await response.arrayBuffer()
     this.audioBuffer =
       await this.sonar.audioContext.decodeAudioData(arrayBuffer)
@@ -45,13 +48,15 @@ export class Track {
     }
   }
 
-  async setup(offset = 0) {
+  async setup() {
+    const offset = this.sonar.offset
     if (!this.audioBuffer) {
       await this.load()
     }
 
     if (this.audioBuffer) {
       const source = this.sonar.audioContext.createBufferSource()
+      this.sourceNode = source
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
       const startTime = this.sonar.originTime + this.startTime
@@ -60,9 +65,13 @@ export class Track {
       } else {
         source.start(0, offset - this.startTime)
       }
+      if (this === this.sonar.lastTrack) {
+        source.addEventListener("ended", this.onEnd)
+      }
 
+      // gainNode
       const gainNode = this.sonar.audioContext.createGain()
-      this.nodes = [source, gainNode]
+      this.gainNode = gainNode
       if (this.fadeInDuration || this.fadeOutDuration) {
         if (this.fadeInDuration) {
           gainNode.gain.setValueAtTime(0, startTime)
@@ -87,36 +96,27 @@ export class Track {
       } else {
         source.connect(this.sonar.gainNode)
       }
-
-      const onEnded = () => {
-        console.log(this)
-
-        this.sonar.emit("end")
-        source.removeEventListener("ended", onEnded)
-      }
-
-      if (this === this.sonar.lastTrack) {
-        source.addEventListener("ended", onEnded)
-      }
     }
   }
+
+  onEnd = () => {
+    console.log("🚀 ~ Track ~ onEnd ~ this:", this)
+    this.sonar.emit("end")
+    this.clear()
+  }
+
   async clear() {
-    if (this.nodes) {
-      for (let n of this.nodes) {
-        n?.disconnect()
-        n = null
-      }
-      this.nodes = []
-    }
+    this.sourceNode?.disconnect()
+    this.gainNode?.disconnect()
+    this.sourceNode?.removeEventListener("ended", this.onEnd)
+    this.sourceNode = undefined
+    this.gainNode = undefined
   }
   set rate(rate: number) {
     this.#rate = rate
-    if (this.nodes) {
-      for (const n of this.nodes) {
-        if (n instanceof AudioBufferSourceNode) {
-          n.playbackRate.value = rate
-        }
-      }
+
+    if (this.sourceNode) {
+      this.sourceNode.playbackRate.value = rate
     }
   }
   get rate() {

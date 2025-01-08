@@ -52,11 +52,11 @@ function App() {
         <button
           type="button"
           className="btn"
-          onClick={async () => {
+          onClick={() => {
             if (isPlaying) {
-              await sonar.pause()
+              sonar.pause()
             } else {
-              await sonar.play()
+              sonar.play()
             }
           }}
         >
@@ -65,8 +65,8 @@ function App() {
         <button
           type="button"
           className="btn"
-          onClick={async () => {
-            await sonar.stop()
+          onClick={() => {
+            sonar.stop()
           }}
         >
           Stop
@@ -133,7 +133,7 @@ function App() {
             setProgress(Number(e.target.value) / 100)
           }}
           onMouseUp={async (e) => {
-            await sonar.seek((Number(e.currentTarget.value) / 100) * duration) // 切到多少秒
+            sonar.seek((Number(e.currentTarget.value) / 100) * duration) // 切到多少秒
           }}
         />
         <div className="flex w-full justify-between px-2 text-xs">

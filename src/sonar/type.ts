@@ -14,13 +14,13 @@ export type Mixed = {
 export type Tracks = Track[]
 
 export type Events = {
-  progress: number
   volume: number
   play: undefined
   pause: undefined
   stop: undefined
   end: undefined
   destroy: undefined
+  load: undefined
   loaded: undefined
   loading: undefined
   rate: number

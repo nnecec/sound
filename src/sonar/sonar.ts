@@ -29,29 +29,34 @@ export class Sonar extends Emitter<Events> {
   validateTrackConfigs(trackConfigs: TrackConfigs) {
     for (const track of trackConfigs) {
       if (!track.src) {
-        throw new Error(
-          `Something is wrong in ${JSON.stringify(track)}: src is required`,
-        )
+        throw new Error(`Wrong in ${JSON.stringify(track)}: src is required`)
       }
     }
   }
 
   initialize(sonarConfig?: SonarConfig) {
-    this.tracks = this.trackConfigs.map((track) => {
-      return new Track(track, this)
-    })
+    this.tracks = this.trackConfigs.map((track) => new Track(track, this))
     this.#volume = sonarConfig?.volume ?? this.#volume
     this.gainNode.gain.value = this.#volume
     this.rate = sonarConfig?.rate ?? this.#rate
     this.on("end", () => {
       this.audioContext.suspend()
-      this.#reset()
+      this.state = "unmounted"
+      this.#clear()
+    })
+    this.on("load", () => {
+      this.setup().then(() => {
+        this.play()
+      })
     })
   }
 
-  async setup(offset = 0) {
+  async setup() {
     this.originTime = this.audioContext.currentTime
-    await Promise.all(this.tracks.map((track) => track.setup(offset)))
+    this.gainNode.disconnect()
+    await Promise.all(this.tracks.map((track) => track.setup()))
+    this.gainNode.connect(this.audioContext.destination)
+    this.state = "mounted"
   }
 
   set volume(volume: number) {
@@ -76,11 +81,10 @@ export class Sonar extends Emitter<Events> {
     return this.#rate
   }
 
-  async play() {
+  play() {
     if (this.state === "unmounted") {
-      await this.setup(this.offset)
-      this.state = "mounted"
-      this.gainNode.connect(this.audioContext.destination)
+      this.emit("load")
+      return
     }
     this.emit("play")
     this.audioContext.resume()
@@ -88,8 +92,8 @@ export class Sonar extends Emitter<Events> {
 
   pause() {
     if (this.audioContext) {
-      this.audioContext.suspend()
       this.emit("pause")
+      this.audioContext.suspend()
     }
   }
 
@@ -97,29 +101,31 @@ export class Sonar extends Emitter<Events> {
     if (this.audioContext) {
       this.audioContext.suspend()
       this.emit("stop")
-      this.#reset()
+      this.state = "unmounted"
+      this.#clear()
     }
   }
 
-  async seek(time: number) {
+  seek(time: number) {
     if (this.audioContext) {
       let needResume = false
       if (this.audioContext.state === "running") {
         this.audioContext.suspend()
         needResume = true
       }
-      this.#reset()
-      this.setup(time)
-      if (needResume) this.audioContext.resume()
+      this.#clear()
       this.offset = time
+      this.setup()
+      if (needResume) {
+        this.audioContext.resume()
+      }
     }
   }
 
-  #reset() {
+  #clear() {
     for (const track of this.tracks) {
       track.clear()
     }
-    this.state = "unmounted"
     this.offset = 0
   }
 
@@ -128,7 +134,8 @@ export class Sonar extends Emitter<Events> {
   }
 
   destroy() {
-    this.#reset()
+    this.#clear()
+    this.state = "unmounted"
     this.all = new Map()
     this.duration = 0
     this.audioContext.close()
