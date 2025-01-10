@@ -1,9 +1,9 @@
-import { Mitter } from './mitter'
+import { Emitter } from 'mittss'
 import { Track } from './track'
 import type { Tracks, TrackConfigs, Events, SonarConfig } from './type'
 import { createCache } from './utils'
 
-export class Sonar extends Mitter<Events> {
+export class Sonar extends Emitter<Events> {
   trackConfigs: TrackConfigs
   tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
