@@ -39,6 +39,9 @@ export class Sonar extends Emitter<Events> {
     this.#volume = sonarConfig?.volume ?? this.#volume
     this.gainNode.gain.value = this.#volume
     this.rate = sonarConfig?.rate ?? this.#rate
+    this.audioContext.addEventListener('statechange', (...arg) => {
+      console.log(arg)
+    })
     this.on('end', () => {
       this.audioContext.suspend()
       this.state = 'unmounted'
@@ -47,6 +50,7 @@ export class Sonar extends Emitter<Events> {
     this.on('load', () => {
       this.setup().then(() => {
         this.play()
+        console.log(this)
       })
     })
   }

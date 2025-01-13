@@ -13,7 +13,7 @@
     "@reactuses/core": "^6.0.1",
     "lru-cache": "^11.0.2",
     "mathjs": "^14.0.1",
-    "mittss": "^0.1.1",
+    "mittss": "^0.1.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "next"
@@ -22,11 +22,11 @@
     "@biomejs/biome": "1.9.4",
     "@tailwindcss/vite": "next",
     "@types/node": "^22.10.5",
-    "@types/react": "^19.0.3",
-    "@types/react-dom": "^19.0.2",
+    "@types/react": "^19.0.6",
+    "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
     "daisyui": "alpha",
-    "typescript": "^5.7.2",
+    "typescript": "^5.7.3",
     "vite": "^6.0.7"
   },
   "packageManager": "pnpm@9.15.3"
