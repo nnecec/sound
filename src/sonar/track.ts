@@ -40,11 +40,6 @@ export class Track {
     this.audioBuffer =
       await this.#sonar.audioContext.decodeAudioData(arrayBuffer)
     this.#sonar.cache.set(this.src, this.audioBuffer)
-    const endTime = add(this.startTime, ceil(this.audioBuffer.duration, 2))
-    if (endTime > this.#sonar.duration) {
-      this.#sonar.duration = endTime
-      this.#sonar.lastTrack = this
-    }
   }
 
   async setup() {

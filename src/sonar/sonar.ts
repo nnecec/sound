@@ -11,7 +11,6 @@ import {
 import { createCache } from './utils'
 
 export class Sonar extends Emitter<Events> {
-  trackConfigs: TrackConfigs
   tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
@@ -21,7 +20,6 @@ export class Sonar extends Emitter<Events> {
   #rate = 1
   lastTrack: Track | null = null
   originTime = 0
-  duration = 0
   offset = 0
   cache = createCache()
   #queue: Queue = new Queue({ concurrency: 5 })
@@ -29,7 +27,7 @@ export class Sonar extends Emitter<Events> {
   constructor(trackConfigs: TrackConfigs, sonarConfig?: SonarConfig) {
     super()
     this.validateTrackConfigs(trackConfigs)
-    this.trackConfigs = trackConfigs
+    this.tracks = trackConfigs.map((track) => new Track(track, this))
     this.gainNode = this.audioContext.createGain()
     this.initialize(sonarConfig)
   }
@@ -43,11 +41,12 @@ export class Sonar extends Emitter<Events> {
   }
 
   initialize(sonarConfig?: SonarConfig) {
-    this.tracks = this.trackConfigs.map((track) => new Track(track, this))
     this.#volume = sonarConfig?.volume ?? this.#volume
     this.gainNode.gain.value = this.#volume
     this.rate = sonarConfig?.rate ?? this.#rate
     this.on('end', () => {
+      console.log('🚀 ~ Sonar ~ this.on ~ end:')
+
       this.audioContext.suspend()
       this.state = 'unmounted'
       this.#clear()
@@ -86,12 +85,16 @@ export class Sonar extends Emitter<Events> {
   }
 
   play() {
-    if (this.state === 'unmounted') {
-      this.emit('load')
-      return
-    }
-    this.emit('play')
-    this.audioContext.resume()
+    console.log(
+      '🚀 ~ Sonar ~ this.#queue.onEmpty ~ this:',
+      this.audioContext.state,
+    )
+    // if (this.state === 'unmounted') {
+    //   this.emit('load')
+    //   return
+    // }
+    // this.emit('play')
+    // this.audioContext.resume()
   }
 
   pause() {
@@ -120,6 +123,7 @@ export class Sonar extends Emitter<Events> {
       this.#clear()
       this.offset = time
       this.setup()
+      console.log('🚀 ~ Sonar ~ seek ~ needResume:', needResume)
       if (needResume) {
         this.audioContext.resume()
       }
@@ -137,11 +141,16 @@ export class Sonar extends Emitter<Events> {
     return this.audioContext.currentTime - this.originTime + this.offset
   }
 
+  get duration() {
+    const last = this.tracks.toSorted((a, b) => b.endTime - a.endTime)[0]
+    this.lastTrack = last
+    return last.endTime
+  }
+
   destroy() {
     this.#clear()
     this.state = 'unmounted'
     this.all = new Map()
-    this.duration = 0
     this.audioContext.close()
     this.emit('destroy')
   }
@@ -156,8 +165,8 @@ export class Sonar extends Emitter<Events> {
     }
 
     function appendBatch(item: Track, priority: Priority) {
-      console.log('🚀 ~ Sonar ~ appendBatch ~ batch:', batch)
-      if (!batch.priority) batch.priority === priority
+      if (!batch.priority) batch.priority = priority
+
       if (batch.priority === priority) {
         batch.items.push(item)
       }
@@ -182,19 +191,15 @@ export class Sonar extends Emitter<Events> {
 
       appendBatch(track, track.priority)
     }
-
-    console.log('🚀 ~ Sonar ~ schedule ~ batch:', batch)
-
     this.#queue.addAll(
       batch.items.map((track) => () => track.setup()),
       { priority: batch.priority },
     )
     this.#queue.onEmpty().then(() => {
-      if (this.audioContext.state === 'suspended') {
-        this.gainNode.connect(this.audioContext.destination)
-        this.play()
-      }
-      // if (batch.priority !== Priority.Low) this.schedule()
+      this.gainNode.connect(this.audioContext.destination)
+      this.play()
+
+      if (batch.priority !== Priority.Low) this.schedule()
     })
   }
 }
