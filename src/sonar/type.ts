@@ -1,4 +1,4 @@
-import type { Track } from "./track"
+import type { Track } from './track'
 
 export type SonarConfig = {
   rate?: number
@@ -24,4 +24,12 @@ export type Events = {
   loaded: undefined
   loading: undefined
   rate: number
+}
+
+export enum Priority {
+  Done = 0,
+  Low = 1,
+  Normal = 2,
+  High = 3,
+  Superhigh = 4,
 }

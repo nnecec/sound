@@ -1,5 +1,6 @@
 import { add, ceil } from 'mathjs'
 import type { Sonar } from './sonar'
+import { Priority } from './type'
 
 export class Track {
   audioBuffer?: AudioBuffer
@@ -13,9 +14,9 @@ export class Track {
   src: string
   #rate = 1
   #sonar: Sonar
-  preload?: boolean | 'metadata' = true
   sourceNode?: AudioBufferSourceNode
   gainNode?: GainNode
+  priority = Priority.Normal
 
   constructor(track: Track, sonar: Sonar) {
     this.src = track.src
@@ -26,10 +27,6 @@ export class Track {
     this.fadeOutDuration = track.fadeOutDuration
     this.volume = track.volume ?? this.volume
     this.#sonar = sonar
-    this.preload = track.preload ?? sonar.preload
-    if (this.preload === true) {
-      this.load()
-    }
   }
 
   async load() {
