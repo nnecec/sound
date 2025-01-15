@@ -91,7 +91,6 @@ export class Track {
 
   onEnd = () => {
     this.#sound.emit('end')
-    console.log('🚀 ~ Track ~ end:')
     this.clear()
   }
 

@@ -87,7 +87,7 @@ export class Sound extends Emitter<Events> {
 
   pause() {
     this.emit('pause')
-    this.offset = this.currentTime
+    this.offset = this.audioContext.currentTime - this.originTime + this.offset
     for (const track of this.tracks) {
       track.stop()
     }
@@ -195,6 +195,7 @@ export class Sound extends Emitter<Events> {
           track.state = Lifecycle.loading
           await track.load()
           track.setup()
+          this.schedule()
         })
       }
     } else {

@@ -10,9 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@datastructures-js/priority-queue": "^6.3.2",
     "@reactuses/core": "^6.0.1",
-    "lru-cache": "^11.0.2",
     "mathjs": "^14.0.1",
     "mittss": "^0.1.2",
     "p-queue": "^8.0.1",
