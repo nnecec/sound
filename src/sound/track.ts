@@ -1,6 +1,5 @@
-import { add, ceil } from 'mathjs'
-import type { Sonar } from './sonar'
-import { Priority } from './type'
+import type { Sound } from './sound'
+import { Lifecycle, Priority } from './type'
 
 export class Track {
   audioBuffer?: AudioBuffer
@@ -13,12 +12,13 @@ export class Track {
   volume = 1
   src: string
   #rate = 1
-  #sonar: Sonar
+  #sound: Sound
   sourceNode?: AudioBufferSourceNode
   gainNode?: GainNode
   priority = Priority.Normal
+  state = Lifecycle.unloaded
 
-  constructor(track: Track, sonar: Sonar) {
+  constructor(track: Track, sound: Sound) {
     this.src = track.src
     this.startTime = track.startTime
     this.endTime = track.endTime
@@ -26,45 +26,40 @@ export class Track {
     this.fadeInDuration = track.fadeInDuration
     this.fadeOutDuration = track.fadeOutDuration
     this.volume = track.volume ?? this.volume
-    this.#sonar = sonar
+    this.#sound = sound
   }
 
   async load() {
-    if (this.#sonar.cache.has(this.src)) {
-      this.audioBuffer = this.#sonar.cache.get(this.src)
+    if (this.state === Lifecycle.loaded) {
       return
     }
-
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
     this.audioBuffer =
-      await this.#sonar.audioContext.decodeAudioData(arrayBuffer)
-    this.#sonar.cache.set(this.src, this.audioBuffer)
+      await this.#sound.audioContext.decodeAudioData(arrayBuffer)
+    this.state = Lifecycle.loaded
   }
 
-  async setup() {
-    const offset = this.#sonar.offset
-    if (!this.audioBuffer) {
-      await this.load()
-    }
-
-    if (this.audioBuffer) {
-      const source = this.#sonar.audioContext.createBufferSource()
+  setup() {
+    const offset = this.#sound.offset
+    const originTime = this.#sound.originTime
+    if (this.audioBuffer && this.state !== Lifecycle.mounted) {
+      const source = this.#sound.audioContext.createBufferSource()
       this.sourceNode = source
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
-      const startTime = this.#sonar.originTime + this.startTime
+      const startTime = originTime + this.startTime
       if (this.startTime > offset) {
         source.start(startTime - offset, 0)
       } else {
         source.start(0, offset - this.startTime)
       }
-      if (this === this.#sonar.lastTrack) {
+      if (this === this.#sound.lastTrack) {
         source.addEventListener('ended', this.onEnd)
       }
 
       // gainNode
-      const gainNode = this.#sonar.audioContext.createGain()
+      const gainNode = this.#sound.audioContext.createGain()
       this.gainNode = gainNode
       if (this.fadeInDuration || this.fadeOutDuration) {
         if (this.fadeInDuration) {
@@ -86,15 +81,17 @@ export class Track {
         }
 
         source.connect(gainNode)
-        gainNode.connect(this.#sonar.gainNode)
+        gainNode.connect(this.#sound.gainNode)
+        this.state = Lifecycle.mounted
       } else {
-        source.connect(this.#sonar.gainNode)
+        source.connect(this.#sound.gainNode)
       }
     }
   }
 
   onEnd = () => {
-    this.#sonar.emit('end')
+    this.#sound.emit('end')
+    console.log('🚀 ~ Track ~ end:')
     this.clear()
   }
 
@@ -114,5 +111,9 @@ export class Track {
   }
   get rate() {
     return this.#rate
+  }
+  stop() {
+    this.sourceNode?.stop?.()
+    this.state = Lifecycle.unmounted
   }
 }

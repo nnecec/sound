@@ -1,11 +1,11 @@
-"use client"
+'use client'
 
-import { Sonar } from "./sonar"
-import { useEffect, useState } from "react"
-import { useInterval } from "@reactuses/core"
-import { tracks } from "./utils/data"
+import { useInterval } from '@reactuses/core'
+import { useEffect, useState } from 'react'
+import { Sound } from './sound'
+import { tracks } from './utils/data'
 
-const sonar = new Sonar(tracks)
+const sonar = new Sound(tracks)
 function App() {
   const [interval, setInterval] = useState<number | null>(null)
   const [progress, setProgress] = useState(0)
@@ -32,15 +32,15 @@ function App() {
       setProgress(0)
     }
 
-    sonar.on("play", onPlay)
-    sonar.on("pause", onPause)
-    sonar.on("stop", onStop)
-    sonar.on("end", onEnd)
+    sonar.on('play', onPlay)
+    sonar.on('pause', onPause)
+    sonar.on('stop', onStop)
+    sonar.on('end', onEnd)
     return () => {
-      sonar.off("play", onPlay)
-      sonar.off("pause", onPause)
-      sonar.off("stop", onStop)
-      sonar.off("end", onEnd)
+      sonar.off('play', onPlay)
+      sonar.off('pause', onPause)
+      sonar.off('stop', onStop)
+      sonar.off('end', onEnd)
     }
   }, [sonar])
 
@@ -60,7 +60,7 @@ function App() {
             }
           }}
         >
-          {isPlaying ? "Pause" : "Play"}
+          {isPlaying ? 'Pause' : 'Play'}
         </button>
         <button
           type="button"

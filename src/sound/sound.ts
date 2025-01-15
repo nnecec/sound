@@ -3,26 +3,24 @@ import Queue from 'p-queue'
 import { Track } from './track'
 import {
   type Events,
+  Lifecycle,
   Priority,
   type SonarConfig,
   type TrackConfigs,
   type Tracks,
 } from './type'
-import { createCache } from './utils'
 
-export class Sonar extends Emitter<Events> {
+export class Sound extends Emitter<Events> {
   tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
-  state: 'unmounted' | 'mounted' = 'unmounted'
-  preload = true
+  state = Lifecycle.unloaded
   #volume = 1
   #rate = 1
   lastTrack: Track | null = null
   originTime = 0
   offset = 0
-  cache = createCache()
-  #queue: Queue = new Queue({ concurrency: 5 })
+  #queue: Queue = new Queue({ concurrency: 5, autoStart: true })
 
   constructor(trackConfigs: TrackConfigs, sonarConfig?: SonarConfig) {
     super()
@@ -43,23 +41,13 @@ export class Sonar extends Emitter<Events> {
   initialize(sonarConfig?: SonarConfig) {
     this.#volume = sonarConfig?.volume ?? this.#volume
     this.gainNode.gain.value = this.#volume
+    this.gainNode.connect(this.audioContext.destination)
     this.rate = sonarConfig?.rate ?? this.#rate
-    this.on('end', () => {
-      console.log('🚀 ~ Sonar ~ this.on ~ end:')
 
-      this.audioContext.suspend()
-      this.state = 'unmounted'
+    this.on('end', () => {
+      this.stop()
       this.#clear()
     })
-    this.on('load', () => {
-      this.setup()
-    })
-  }
-
-  async setup() {
-    this.originTime = this.audioContext.currentTime
-    this.schedule()
-    this.state = 'mounted'
   }
 
   set volume(volume: number) {
@@ -85,49 +73,39 @@ export class Sonar extends Emitter<Events> {
   }
 
   play() {
-    console.log(
-      '🚀 ~ Sonar ~ this.#queue.onEmpty ~ this:',
-      this.audioContext.state,
-    )
-    // if (this.state === 'unmounted') {
-    //   this.emit('load')
-    //   return
-    // }
-    // this.emit('play')
-    // this.audioContext.resume()
+    this.originTime = this.audioContext.currentTime
+    if (this.state === Lifecycle.unloaded) {
+      this.schedule()
+      return
+    }
+    this.emit('play')
+
+    for (const track of this.tracks) {
+      track.setup()
+    }
   }
 
   pause() {
-    if (this.audioContext) {
-      this.emit('pause')
-      this.audioContext.suspend()
+    this.emit('pause')
+    this.offset = this.currentTime
+    for (const track of this.tracks) {
+      track.stop()
     }
   }
 
   stop() {
-    if (this.audioContext) {
-      this.audioContext.suspend()
-      this.emit('stop')
-      this.state = 'unmounted'
-      this.#clear()
+    this.emit('stop')
+    for (const track of this.tracks) {
+      track.stop()
     }
+    this.#clear()
   }
 
   seek(time: number) {
-    if (this.audioContext) {
-      let needResume = false
-      if (this.audioContext.state === 'running') {
-        this.audioContext.suspend()
-        needResume = true
-      }
-      this.#clear()
-      this.offset = time
-      this.setup()
-      console.log('🚀 ~ Sonar ~ seek ~ needResume:', needResume)
-      if (needResume) {
-        this.audioContext.resume()
-      }
-    }
+    this.#clear()
+    this.pause()
+    this.offset = time
+    this.play()
   }
 
   #clear() {
@@ -149,7 +127,7 @@ export class Sonar extends Emitter<Events> {
 
   destroy() {
     this.#clear()
-    this.state = 'unmounted'
+    this.state = Lifecycle.unloaded
     this.all = new Map()
     this.audioContext.close()
     this.emit('destroy')
@@ -163,6 +141,7 @@ export class Sonar extends Emitter<Events> {
       priority: undefined,
       items: [],
     }
+    const currentTime = this.originTime + this.offset
 
     function appendBatch(item: Track, priority: Priority) {
       if (!batch.priority) batch.priority = priority
@@ -173,33 +152,53 @@ export class Sonar extends Emitter<Events> {
     }
 
     for (const track of this.tracks) {
-      if (track.priority === Priority.Done) continue
-      if (
-        this.currentTime >= track.startTime &&
-        this.currentTime <= track.endTime
-      ) {
+      if (track.state !== Lifecycle.unloaded) {
+        continue
+      }
+
+      if (currentTime >= track.startTime && currentTime <= track.endTime) {
         track.priority = Priority.Superhigh
-      } else if (this.currentTime + 10 >= track.startTime) {
+      } else if (currentTime + 10 >= track.startTime) {
         track.priority = Priority.High
-      } else if (this.currentTime + 10 < track.startTime) {
+      } else if (currentTime + 10 < track.startTime) {
         track.priority = Priority.Normal
-      } else if (this.currentTime >= track.endTime) {
+      } else if (currentTime >= track.endTime) {
         track.priority = Priority.Low
       } else {
         track.priority = Priority.Normal
       }
-
       appendBatch(track, track.priority)
     }
-    this.#queue.addAll(
-      batch.items.map((track) => () => track.setup()),
-      { priority: batch.priority },
-    )
-    this.#queue.onEmpty().then(() => {
-      this.gainNode.connect(this.audioContext.destination)
-      this.play()
 
-      if (batch.priority !== Priority.Low) this.schedule()
-    })
+    if (batch.priority === Priority.Superhigh) {
+      this.#queue
+        .addAll(
+          batch.items.map((track) => async () => {
+            track.state = Lifecycle.loading
+            await track.load()
+          }),
+          { priority: batch.priority },
+        )
+        .then(() => {
+          this.#queue.onEmpty().then(() => {
+            for (const track of batch.items) {
+              track.state = Lifecycle.loaded
+            }
+            this.state = Lifecycle.loading
+            this.play()
+            this.schedule()
+          })
+        })
+    } else if (batch.priority) {
+      for (const track of batch.items) {
+        this.#queue.add(async () => {
+          track.state = Lifecycle.loading
+          await track.load()
+          track.setup()
+        })
+      }
+    } else {
+      this.state = Lifecycle.loaded
+    }
   }
 }

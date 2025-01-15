@@ -1,4 +1,4 @@
-import type { TrackConfigs } from '../sonar'
+import type { TrackConfigs } from '../sound'
 
 export const tracks: TrackConfigs = [
   {

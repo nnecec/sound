@@ -27,9 +27,16 @@ export type Events = {
 }
 
 export enum Priority {
-  Done = 0,
   Low = 1,
   Normal = 2,
   High = 3,
   Superhigh = 4,
+}
+
+export enum Lifecycle {
+  unloaded = 0,
+  loading = 1,
+  loaded = 2,
+  mounted = 3,
+  unmounted = 4,
 }
