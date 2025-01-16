@@ -49,8 +49,8 @@ importers:
         specifier: ^4.3.4
         version: 4.3.4(vite@6.0.7(@types/node@22.10.5)(jiti@2.4.2)(lightningcss@1.28.2))
       daisyui:
-        specifier: alpha
-        version: 5.0.0-alpha.59
+        specifier: beta
+        version: 5.0.0-beta.1
       typescript:
         specifier: ^5.7.3
         version: 5.7.3
@@ -653,8 +653,8 @@ packages:
   csstype@3.1.3:
     resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
 
-  daisyui@5.0.0-alpha.59:
-    resolution: {integrity: sha512-2W2p5pKB+1Bed7/4t1MziowwNrH+H8+q2hCCA5rNlo499FreHteK98895KLQNO5Aks5jwNUsTqOsg/Mq8MAKhA==}
+  daisyui@5.0.0-beta.1:
+    resolution: {integrity: sha512-VEWUsfhslDhF4zgwFc9rqjETISGJWy8o9ElfJs9GpBDIc0voHUxGAltSwaXA4NUJkuI9ov3J2B9FTBHbAsIhUA==}
 
   debug@4.4.0:
     resolution: {integrity: sha512-6WTZ/IxCY/T6BALoZHaE4ctp9xm+Z5kY/pzYaCHRFeyVhojxlrm+46y68HA6hr0TcwEssoxNiDEUJQjfPZ/RYA==}
@@ -1463,7 +1463,7 @@ snapshots:
 
   csstype@3.1.3: {}
 
-  daisyui@5.0.0-alpha.59: {}
+  daisyui@5.0.0-beta.1: {}
 
   debug@4.4.0:
     dependencies:

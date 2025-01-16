@@ -1,6 +1,6 @@
-import type { TrackConfigs } from '../sound'
+import type { TracksConfig } from '../sound'
 
-export const tracks: TrackConfigs = [
+export const tracks: TracksConfig = [
   {
     startTime: 0,
     endTime: 11.34,

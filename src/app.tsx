@@ -5,20 +5,18 @@ import { useEffect, useState } from 'react'
 import { Sound } from './sound'
 import { tracks } from './utils/data'
 
-const sonar = new Sound(tracks)
+const sound = new Sound(tracks)
 function App() {
   const [interval, setInterval] = useState<number | null>(null)
   const [progress, setProgress] = useState(0)
-  const [duration, setDuration] = useState(0)
 
   useInterval(() => {
-    setProgress(sonar.currentTime / sonar.duration)
+    setProgress(sound.offsetTime / sound.duration)
   }, interval)
 
   useEffect(() => {
     const onPlay = () => {
       setInterval(1000)
-      setDuration(sonar.duration)
     }
     const onPause = () => {
       setInterval(null)
@@ -32,17 +30,17 @@ function App() {
       setProgress(0)
     }
 
-    sonar.on('play', onPlay)
-    sonar.on('pause', onPause)
-    sonar.on('stop', onStop)
-    sonar.on('end', onEnd)
+    sound.on('play', onPlay)
+    sound.on('pause', onPause)
+    sound.on('stop', onStop)
+    sound.on('end', onEnd)
     return () => {
-      sonar.off('play', onPlay)
-      sonar.off('pause', onPause)
-      sonar.off('stop', onStop)
-      sonar.off('end', onEnd)
+      sound.off('play', onPlay)
+      sound.off('pause', onPause)
+      sound.off('stop', onStop)
+      sound.off('end', onEnd)
     }
-  }, [sonar])
+  }, [sound])
 
   const isPlaying = !!interval
 
@@ -54,9 +52,9 @@ function App() {
           className="btn"
           onClick={() => {
             if (isPlaying) {
-              sonar.pause()
+              sound.pause()
             } else {
-              sonar.play()
+              sound.play()
             }
           }}
         >
@@ -66,7 +64,7 @@ function App() {
           type="button"
           className="btn"
           onClick={() => {
-            sonar.stop()
+            sound.stop()
           }}
         >
           Stop
@@ -85,9 +83,9 @@ function App() {
           step={1}
           className="range w-full"
           onChange={(e) => {
-            sonar.volume = Number(e.target.value) / 100
+            sound.volume = Number(e.target.value) / 100
           }}
-          defaultValue={sonar.volume * 100}
+          defaultValue={sound.volume * 100}
         />
         <div className="flex w-full justify-between px-2 text-xs">
           <span>0</span>
@@ -108,7 +106,7 @@ function App() {
           className="range w-full"
           defaultValue={1}
           onMouseUp={(e) => {
-            sonar.rate = Number(e.target.value)
+            sound.rate = Number(e.target.value)
           }}
         />
         <div className="flex w-full justify-between px-2 text-xs">
@@ -133,12 +131,12 @@ function App() {
             setProgress(Number(e.target.value) / 100)
           }}
           onMouseUp={async (e) => {
-            sonar.seek((Number(e.currentTarget.value) / 100) * duration) // 切到多少秒
+            sound.seek((Number(e.currentTarget.value) / 100) * sound.duration) // 切到多少秒
           }}
         />
         <div className="flex w-full justify-between px-2 text-xs">
           <span>0</span>
-          <span>{duration}</span>
+          <span>{sound.duration}</span>
         </div>
       </div>
     </div>

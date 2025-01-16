@@ -1,11 +1,11 @@
 import type { Track } from './track'
 
-export type SonarConfig = {
+export type SoundConfig = {
   rate?: number
   volume?: number
 }
 
-export type TrackConfigs = Track[]
+export type TracksConfig = Track[]
 
 export type Mixed = {
   nodes: AudioBuffer[]
@@ -27,6 +27,7 @@ export type Events = {
 }
 
 export enum Priority {
+  None = 0,
   Low = 1,
   Normal = 2,
   High = 3,
@@ -39,4 +40,10 @@ export enum Lifecycle {
   loaded = 2,
   mounted = 3,
   unmounted = 4,
+}
+
+export enum State {
+  stopped = 0,
+  playing = 1,
+  paused = 2,
 }
