@@ -151,25 +151,25 @@ export class Sound extends Emitter<Events> {
         continue
       }
       track.priority = getPriority(track, offsetTime)
+
       if (track.priority > batch.priority) {
         batch.priority = track.priority
       }
     }
 
     for (const track of this.#tracks) {
-      if (track.lifecycle !== Lifecycle.unloaded) {
-        continue
-      }
       if (track.priority === batch.priority) {
+        track.lifecycle = Lifecycle.loading
         batch.items.push(track)
       }
     }
 
+    console.log('🚀 ~ Sound ~ #schedule ~ batch:', batch)
     if (batch.priority === Priority.Superhigh) {
+      this.lifecycle = Lifecycle.loading
       this.#queue
         .addAll(
           batch.items.map((track) => async () => {
-            track.lifecycle = Lifecycle.loading
             await track.load()
             track.lifecycle = Lifecycle.loaded
           }),
@@ -177,18 +177,20 @@ export class Sound extends Emitter<Events> {
         )
         .then(() => {
           this.#queue.onEmpty().then(() => {
-            this.lifecycle = Lifecycle.loading
             this.play()
             this.#schedule()
           })
         })
     } else if (batch.priority !== Priority.None) {
+      this.lifecycle = Lifecycle.loading
       for (const track of batch.items) {
         this.#queue.add(async () => {
-          track.lifecycle = Lifecycle.loading
           await track.load()
+          track.lifecycle = Lifecycle.loaded
           track.setup()
-          this.#schedule()
+          if (this.lifecycle !== Lifecycle.loaded) {
+            this.#schedule()
+          }
         })
       }
     } else {
@@ -212,7 +214,7 @@ export class Sound extends Emitter<Events> {
       if (!track.src) {
         throw new Error(`Wrong in ${JSON.stringify(track)}: src is required`)
       }
-      if (!track.startTime || !track.endTime) {
+      if (track.startTime === undefined || track.endTime === undefined) {
         throw new Error(
           `Wrong in ${JSON.stringify(track)}: startTime and endTime is required`,
         )

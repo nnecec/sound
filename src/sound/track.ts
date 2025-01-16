@@ -88,10 +88,10 @@ export class Track {
         this.#fade(gainNode, startTime)
         source.connect(gainNode)
         gainNode.connect(soundGainNode)
-        this.lifecycle = Lifecycle.mounted
       } else {
         source.connect(soundGainNode)
       }
+      this.lifecycle = Lifecycle.mounted
     }
   }
 
