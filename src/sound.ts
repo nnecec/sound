@@ -70,19 +70,19 @@ export class Sound extends Emitter<Events> {
   }
   set rate(rate: number) {
     this.emit('rate', rate)
+    const changeRate = () => {
+      this.#rate = rate
+      this.#invokeTracks((track) => {
+        track.rate = rate
+      })
+    }
 
     if (this.state === State.playing) {
       this.pause()
-      this.#rate = rate
-      this.#invokeTracks((track) => {
-        track.rate = rate
-      })
+      changeRate()
       this.play()
     } else {
-      this.#rate = rate
-      this.#invokeTracks((track) => {
-        track.rate = rate
-      })
+      changeRate()
     }
   }
 
