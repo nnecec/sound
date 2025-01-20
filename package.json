@@ -4,28 +4,53 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "bunchee -w",
+    "build": "bunchee",
+    "example": "vite"
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "license": "MIT",
+  "homepage": "https://github.com/nnecec/sound",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nnecec/sound.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nnecec/sound/issues"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   },
   "dependencies": {
-    "@reactuses/core": "^6.0.1",
-    "mathjs": "^14.0.1",
     "mittss": "^0.1.2",
-    "p-queue": "^8.0.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tailwindcss": "next"
+    "p-queue": "^8.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@reactuses/core": "^6.0.1",
     "@tailwindcss/vite": "next",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "bunchee": "^6.3.2",
     "daisyui": "beta",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "next",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
   },

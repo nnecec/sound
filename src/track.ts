@@ -40,6 +40,7 @@ export class Track {
     this.fadeOutDuration = track.fadeOutDuration
     this.volume = track.volume ?? this.volume
     this.#sound = sound
+    this.rate = sound.rate
   }
 
   async load() {
@@ -72,7 +73,7 @@ export class Track {
       source.playbackRate.value = this.#rate
       const startTime = originTime + this.startTime
       if (this.startTime > offsetTime) {
-        source.start(startTime - offsetTime, 0)
+        source.start((startTime - offsetTime) / this.rate, 0)
       } else {
         source.start(0, offsetTime - this.startTime)
       }

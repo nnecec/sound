@@ -53,7 +53,13 @@ export class Sound extends Emitter<Events> {
   }
   // eslint-disable-next-line @typescript-eslint/member-ordering
   get offsetTime() {
-    return this.audioContext.currentTime - this.originTime + this.#offsetTime
+    if (this.state === State.playing) {
+      return (
+        (this.audioContext.currentTime - this.originTime) * this.#rate +
+        this.#offsetTime
+      )
+    }
+    return this.#offsetTime
   }
   set offsetTime(time: number) {
     this.#offsetTime = time
@@ -63,11 +69,21 @@ export class Sound extends Emitter<Events> {
     return this.#rate
   }
   set rate(rate: number) {
-    this.#rate = rate
-    this.#invokeTracks((track) => {
-      track.rate = rate
-    })
     this.emit('rate', rate)
+
+    if (this.state === State.playing) {
+      this.pause()
+      this.#rate = rate
+      this.#invokeTracks((track) => {
+        track.rate = rate
+      })
+      this.play()
+    } else {
+      this.#rate = rate
+      this.#invokeTracks((track) => {
+        track.rate = rate
+      })
+    }
   }
 
   constructor(tracksConfig: TracksConfig, soundConfig?: SoundConfig) {
@@ -163,8 +179,6 @@ export class Sound extends Emitter<Events> {
         batch.items.push(track)
       }
     }
-
-    console.log('🚀 ~ Sound ~ #schedule ~ batch:', batch)
     if (batch.priority === Priority.Superhigh) {
       this.lifecycle = Lifecycle.loading
       this.#queue

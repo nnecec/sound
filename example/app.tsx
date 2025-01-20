@@ -2,8 +2,8 @@
 
 import { useInterval } from '@reactuses/core'
 import { useEffect, useState } from 'react'
-import { Sound } from './sound'
-import { tracks } from './utils/data'
+import { Sound } from '../src'
+import { tracks } from './data'
 
 const sound = new Sound(tracks)
 function App() {
