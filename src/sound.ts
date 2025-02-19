@@ -16,7 +16,12 @@ export class Sound extends Emitter<Events> {
   #volume = 1
   #rate = 1
   #offsetTime = 0
-  #queue: Queue = new Queue({ concurrency: 3, autoStart: true })
+  #scheduleOptions = {
+    preloadBefore: 10,
+    pendingAfter: 10,
+    concurrency: 4,
+  }
+  #queue: Queue
   #tracks: Tracks = []
 
   audioContext: AudioContext = new AudioContext()
@@ -72,7 +77,7 @@ export class Sound extends Emitter<Events> {
     this.emit('rate', rate)
     const changeRate = () => {
       this.#rate = rate
-      this.#invokeTracks((track) => {
+      this.#invokeTracks(track => {
         track.rate = rate
       })
     }
@@ -89,7 +94,7 @@ export class Sound extends Emitter<Events> {
   constructor(tracksConfig: TracksConfig, soundConfig?: SoundConfig) {
     super()
     this.#validateTrackConfigs(tracksConfig)
-    this.#tracks = tracksConfig.map((track) => new Track(track, this))
+    this.#tracks = tracksConfig.map(track => new Track(track, this))
     this.gainNode = this.audioContext.createGain()
     this.initialize(soundConfig)
   }
@@ -99,6 +104,10 @@ export class Sound extends Emitter<Events> {
     this.gainNode.gain.value = this.#volume
     this.gainNode.connect(this.audioContext.destination)
     this.rate = soundConfig?.rate ?? this.#rate
+    this.#queue = new Queue({
+      concurrency: soundConfig?.scheduleOptions?.concurrency || 4,
+      autoStart: true,
+    })
 
     this.on('end', () => {
       this.stop()
@@ -107,14 +116,12 @@ export class Sound extends Emitter<Events> {
   }
 
   play() {
-    this.originTime = this.audioContext.currentTime
-    if (this.lifecycle === Lifecycle.unloaded) {
-      this.#schedule()
-      return
-    }
-    this.emit('play')
-    this.state = State.playing
-    this.#invokeTracks((track) => track.setup())
+    this.#schedule().then(() => {
+      this.originTime = this.audioContext.currentTime
+      this.emit('play')
+      this.state = State.playing
+      this.#invokeTracks(track => track.setup())
+    })
   }
 
   pause() {
@@ -123,13 +130,13 @@ export class Sound extends Emitter<Events> {
     this.offsetTime =
       this.audioContext.currentTime - this.originTime + this.offsetTime
     this.originTime = this.audioContext.currentTime
-    this.#invokeTracks((track) => track.stop())
+    this.#invokeTracks(track => track.stop())
   }
 
   stop() {
     this.emit('stop')
     this.state = State.stopped
-    this.#invokeTracks((track) => track.stop())
+    this.#invokeTracks(track => track.stop())
     this.#clear()
   }
 
@@ -152,7 +159,7 @@ export class Sound extends Emitter<Events> {
     this.emit('destroy')
   }
 
-  #schedule() {
+  async #schedule() {
     const batch: {
       priority: Priority
       items: Track[]
@@ -161,59 +168,52 @@ export class Sound extends Emitter<Events> {
       items: [],
     }
     const offsetTime = this.offsetTime
-
     for (const track of this.#tracks) {
-      if (track.lifecycle !== Lifecycle.unloaded) {
+      if (track.lifecycle > Lifecycle.unloaded) {
         continue
       }
-      track.priority = getPriority(track, offsetTime)
+      track.priority = getPriority(track, offsetTime, this.#scheduleOptions)
 
       if (track.priority > batch.priority) {
         batch.priority = track.priority
       }
     }
+    if (batch.priority === Priority.None) {
+      this.lifecycle = Lifecycle.loaded
+      return
+    }
 
     for (const track of this.#tracks) {
-      if (track.priority === batch.priority) {
-        track.lifecycle = Lifecycle.loading
+      if (
+        track.priority === batch.priority &&
+        batch.priority >= Priority.Low &&
+        track.lifecycle === Lifecycle.unloaded
+      ) {
         batch.items.push(track)
       }
     }
-    if (batch.priority === Priority.Superhigh) {
-      this.lifecycle = Lifecycle.loading
-      this.#queue
-        .addAll(
-          batch.items.map((track) => async () => {
-            await track.load()
-            track.lifecycle = Lifecycle.loaded
-          }),
-          { priority: batch.priority },
-        )
-        .then(() => {
-          this.#queue.onEmpty().then(() => {
-            this.play()
-            this.#schedule()
-          })
-        })
-    } else if (batch.priority !== Priority.None) {
-      this.lifecycle = Lifecycle.loading
-      for (const track of batch.items) {
-        this.#queue.add(async () => {
-          await track.load()
-          track.lifecycle = Lifecycle.loaded
-          track.setup()
-          if (this.lifecycle !== Lifecycle.loaded) {
-            this.#schedule()
-          }
-        })
-      }
-    } else {
-      this.lifecycle = Lifecycle.loaded
+
+    await this.#queue.addAll(
+      batch.items.map(track => async () => {
+        await track.load()
+      }),
+      { priority: batch.priority },
+    )
+
+    // 立即播放队列加载完成后开始播放
+    await this.#queue.onEmpty()
+
+    if (this.state === State.playing) {
+      this.#invokeTracks(track => track.setup())
     }
+
+    setTimeout(() => {
+      this.#schedule()
+    }, 1000)
   }
 
   #clear() {
-    this.#invokeTracks((track) => track.clear())
+    this.#invokeTracks(track => track.clear())
     this.offsetTime = 0
   }
 
@@ -230,7 +230,9 @@ export class Sound extends Emitter<Events> {
       }
       if (track.startTime === undefined || track.endTime === undefined) {
         throw new Error(
-          `Wrong in ${JSON.stringify(track)}: startTime and endTime is required`,
+          `Wrong in ${JSON.stringify(
+            track,
+          )}: startTime and endTime is required`,
         )
       }
     }

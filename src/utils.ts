@@ -1,23 +1,33 @@
 import type { Track } from './track'
 import { Priority } from './type'
 
+/** 0 ===== track.startTime ======= offsetTime ======= offsetTime+preloadBefore ======== track.endTime ====== offsetTime+pendingAfter ====== */
+
 export function getPriority(
   track: Track,
   offsetTime: number,
-  nearbyTime = 15,
+  { preloadBefore, pendingAfter },
 ): Priority {
+  pendingAfter = pendingAfter > preloadBefore ? pendingAfter : preloadBefore
+
   if (offsetTime >= track.startTime && offsetTime <= track.endTime) {
-    return Priority.Superhigh
-  }
-  if (
-    offsetTime < track.startTime &&
-    offsetTime + nearbyTime >= track.startTime
-  ) {
-    // 临近的 Tracks 具有偏高的优先级
     return Priority.High
   }
-  if (offsetTime + nearbyTime < track.startTime) {
+
+  if (
+    offsetTime + preloadBefore > track.startTime &&
+    track.startTime <= offsetTime + pendingAfter
+  ) {
     return Priority.Normal
   }
+
+  if (offsetTime + pendingAfter < track.startTime) {
+    return Priority.Pending
+  }
+
+  if (offsetTime < track.startTime) {
+    return Priority.None
+  }
+
   return Priority.Low
 }

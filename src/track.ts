@@ -47,17 +47,20 @@ export class Track {
     if (this.lifecycle === Lifecycle.loaded) {
       return
     }
+    this.lifecycle = Lifecycle.loading
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
-    this.audioBuffer =
-      await this.#sound.audioContext.decodeAudioData(arrayBuffer)
+    this.audioBuffer = await this.#sound.audioContext.decodeAudioData(
+      arrayBuffer,
+    )
     this.lifecycle = Lifecycle.loaded
   }
 
   setup() {
     if (
       this.audioBuffer &&
-      this.lifecycle !== Lifecycle.mounted &&
+      (this.lifecycle === Lifecycle.loaded ||
+        this.lifecycle === Lifecycle.unmounted) &&
       this.#sound.state === State.playing
     ) {
       const {
@@ -72,6 +75,7 @@ export class Track {
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
       const startTime = originTime + this.startTime
+
       if (this.startTime > offsetTime) {
         source.start((startTime - offsetTime) / this.rate, 0)
       } else {

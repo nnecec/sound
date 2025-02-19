@@ -11,6 +11,8 @@ function App() {
   const [progress, setProgress] = useState(0)
 
   useInterval(() => {
+    // console.log(sound.offsetTime , sound.duration);
+
     setProgress(sound.offsetTime / sound.duration)
   }, interval)
 

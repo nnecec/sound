@@ -3,6 +3,11 @@ import type { Track } from './track'
 export type SoundConfig = {
   rate?: number
   volume?: number
+  scheduleOptions?: {
+    preloadBefore?: number
+    pendingAfter?: number
+    concurrency?: number
+  }
 }
 
 export type TracksConfig = Track[]
@@ -27,11 +32,11 @@ export type Events = {
 }
 
 export enum Priority {
-  None = 0,
-  Low = 1,
-  Normal = 2,
-  High = 3,
-  Superhigh = 4,
+  None = 0, // 不用加载
+  Pending = 1, // 等待加载
+  Low = 2,
+  Normal = 3,
+  High = 4, // 立即加载
 }
 
 export enum Lifecycle {
