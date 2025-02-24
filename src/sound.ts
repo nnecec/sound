@@ -117,8 +117,8 @@ export class Sound extends Emitter<Events> {
     const last = this.#tracks.toSorted((a, b) => b.endTime - a.endTime)?.[0]
     this.lastTrack = last
 
-    this.on('end', this.onEnd)
-    this.on('play', this.onPlay)
+    this.on('end', this.onEnd.bind(this))
+    this.on('play', this.onPlay.bind(this))
   }
 
   play() {
@@ -198,7 +198,7 @@ export class Sound extends Emitter<Events> {
       if (
         track.priority === batch.priority &&
         batch.priority >= Priority.Low &&
-        track.loaded
+        !track.loaded
       ) {
         batch.items.push(track)
       }

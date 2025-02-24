@@ -14,7 +14,6 @@ export class Track {
   sourceNode?: AudioBufferSourceNode
   gainNode?: GainNode
   priority = Priority.Normal
-  mounted = false // 是否已挂载到 context
 
   get duration() {
     return this.endTime - this.startTime
@@ -38,6 +37,13 @@ export class Track {
     return false
   }
 
+  get mounted() {
+    if (this.audioBuffer && this.sourceNode) {
+      return true
+    }
+    return false
+  }
+
   constructor(track: Track, sound: Sound) {
     this.src = track.src
     this.startTime = track.startTime
@@ -53,7 +59,6 @@ export class Track {
     if (this.loaded) {
       return
     }
-    this.lifecycle = Lifecycle.loading
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
     this.audioBuffer =
@@ -70,7 +75,7 @@ export class Track {
       const {
         audioContext,
         gainNode: soundGainNode,
-        currentTime: offsetTime,
+        currentTime,
         originTime,
         lastTrack,
       } = this.#sound
@@ -79,11 +84,12 @@ export class Track {
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
       const startTime = originTime + this.startTime
+      console.log('🚀 ~ Track ~ setup ~ startTime:', this.src, originTime)
 
-      if (this.startTime > offsetTime) {
-        source.start((startTime - offsetTime) / this.rate, 0)
+      if (this.startTime > currentTime) {
+        source.start((startTime - currentTime) / this.rate, 0)
       } else {
-        source.start(0, offsetTime - this.startTime)
+        source.start(0, currentTime - this.startTime)
       }
       if (this === lastTrack) {
         source.addEventListener('ended', this.onEnd)
@@ -100,7 +106,6 @@ export class Track {
       } else {
         source.connect(soundGainNode)
       }
-      this.mounted = true
     }
   }
 
@@ -114,10 +119,9 @@ export class Track {
   clear() {
     this.sourceNode?.disconnect()
     this.gainNode?.disconnect()
-    this.sourceNode?.removeEventListener('ended', this.onEnd)
+    this.sourceNode?.removeEventListener('ended', this.onEnd.bind(this))
     this.sourceNode = undefined
     this.gainNode = undefined
-    this.mounted = false
   }
 
   stop() {
