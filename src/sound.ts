@@ -3,7 +3,6 @@ import Queue from 'p-queue'
 import { Track } from './track'
 import {
   type Events,
-  Lifecycle,
   Priority,
   type SoundConfig,
   State,
@@ -15,7 +14,7 @@ import { getPriority } from './utils'
 export class Sound extends Emitter<Events> {
   #volume = 1
   #rate = 1
-  #offsetTime = 0
+  #currentTime = 0
   #scheduleOptions = {
     preloadBefore: 10,
     pendingAfter: 10,
@@ -26,7 +25,6 @@ export class Sound extends Emitter<Events> {
 
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
-  lifecycle = Lifecycle.unloaded
   state = State.stopped
   lastTrack: Track | null = null
   originTime = 0
@@ -44,9 +42,7 @@ export class Sound extends Emitter<Events> {
   }
 
   get duration() {
-    const last = this.#tracks.toSorted((a, b) => b.endTime - a.endTime)?.[0]
-    this.lastTrack = last
-    return last.endTime ?? 0
+    return this.lastTrack?.endTime ?? 0
   }
   get volume() {
     return this.#volume
@@ -57,17 +53,17 @@ export class Sound extends Emitter<Events> {
     this.emit('volume', volume)
   }
   // eslint-disable-next-line @typescript-eslint/member-ordering
-  get offsetTime() {
+  get currentTime() {
     if (this.state === State.playing) {
       return (
         (this.audioContext.currentTime - this.originTime) * this.#rate +
-        this.#offsetTime
+        this.#currentTime
       )
     }
-    return this.#offsetTime
+    return this.#currentTime
   }
-  set offsetTime(time: number) {
-    this.#offsetTime = time
+  set currentTime(time: number) {
+    this.#currentTime = time
   }
   // eslint-disable-next-line @typescript-eslint/member-ordering
   get rate() {
@@ -77,7 +73,7 @@ export class Sound extends Emitter<Events> {
     this.emit('rate', rate)
     const changeRate = () => {
       this.#rate = rate
-      this.#invokeTracks(track => {
+      this.#invokeTracks((track) => {
         track.rate = rate
       })
     }
@@ -94,9 +90,19 @@ export class Sound extends Emitter<Events> {
   constructor(tracksConfig: TracksConfig, soundConfig?: SoundConfig) {
     super()
     this.#validateTrackConfigs(tracksConfig)
-    this.#tracks = tracksConfig.map(track => new Track(track, this))
+    this.#tracks = tracksConfig.map((track) => new Track(track, this))
     this.gainNode = this.audioContext.createGain()
     this.initialize(soundConfig)
+  }
+
+  onEnd() {
+    this.stop()
+    this.#clear()
+  }
+  onPlay() {
+    this.originTime = this.audioContext.currentTime
+    this.state = State.playing
+    this.#invokeTracks((track) => track.setup())
   }
 
   initialize(soundConfig?: SoundConfig) {
@@ -108,51 +114,53 @@ export class Sound extends Emitter<Events> {
       concurrency: soundConfig?.scheduleOptions?.concurrency || 4,
       autoStart: true,
     })
+    const last = this.#tracks.toSorted((a, b) => b.endTime - a.endTime)?.[0]
+    this.lastTrack = last
 
-    this.on('end', () => {
-      this.stop()
-      this.#clear()
-    })
+    this.on('end', this.onEnd)
+    this.on('play', this.onPlay)
   }
 
   play() {
+    setTimeout(() => {
+      // 如果300ms仍不是播放中，则提供 loading 状态
+      if (this.state !== State.playing) {
+        this.state = State.loading
+      }
+    }, 300)
     this.#schedule().then(() => {
-      this.originTime = this.audioContext.currentTime
       this.emit('play')
-      this.state = State.playing
-      this.#invokeTracks(track => track.setup())
     })
   }
 
   pause() {
     this.emit('pause')
     this.state = State.paused
-    this.offsetTime =
-      this.audioContext.currentTime - this.originTime + this.offsetTime
+    this.currentTime =
+      this.audioContext.currentTime - this.originTime + this.currentTime
     this.originTime = this.audioContext.currentTime
-    this.#invokeTracks(track => track.stop())
+    this.#invokeTracks((track) => track.stop())
   }
 
   stop() {
     this.emit('stop')
     this.state = State.stopped
-    this.#invokeTracks(track => track.stop())
+    this.#invokeTracks((track) => track.stop())
     this.#clear()
   }
 
   seek(time: number) {
     if (this.state === State.playing) {
       this.pause()
-      this.offsetTime = time
+      this.currentTime = time
       this.play()
     } else {
-      this.offsetTime = time
+      this.currentTime = time
     }
   }
 
   destroy() {
     this.#clear()
-    this.lifecycle = Lifecycle.unloaded
     this.#queue.clear()
     this.all.clear()
     this.audioContext.close()
@@ -167,19 +175,22 @@ export class Sound extends Emitter<Events> {
       priority: Priority.None,
       items: [],
     }
-    const offsetTime = this.offsetTime
     for (const track of this.#tracks) {
-      if (track.lifecycle > Lifecycle.unloaded) {
+      if (track.loaded) {
         continue
       }
-      track.priority = getPriority(track, offsetTime, this.#scheduleOptions)
+      track.priority = getPriority(
+        track,
+        this.currentTime,
+        this.#scheduleOptions,
+      )
 
       if (track.priority > batch.priority) {
         batch.priority = track.priority
       }
     }
     if (batch.priority === Priority.None) {
-      this.lifecycle = Lifecycle.loaded
+      // 没有需要加载的了
       return
     }
 
@@ -187,14 +198,14 @@ export class Sound extends Emitter<Events> {
       if (
         track.priority === batch.priority &&
         batch.priority >= Priority.Low &&
-        track.lifecycle === Lifecycle.unloaded
+        track.loaded
       ) {
         batch.items.push(track)
       }
     }
 
     await this.#queue.addAll(
-      batch.items.map(track => async () => {
+      batch.items.map((track) => async () => {
         await track.load()
       }),
       { priority: batch.priority },
@@ -204,7 +215,7 @@ export class Sound extends Emitter<Events> {
     await this.#queue.onEmpty()
 
     if (this.state === State.playing) {
-      this.#invokeTracks(track => track.setup())
+      this.#invokeTracks((track) => track.setup())
     }
 
     setTimeout(() => {
@@ -213,8 +224,8 @@ export class Sound extends Emitter<Events> {
   }
 
   #clear() {
-    this.#invokeTracks(track => track.clear())
-    this.offsetTime = 0
+    this.#invokeTracks((track) => track.clear())
+    this.currentTime = 0
   }
 
   #invokeTracks(callback: (track: Track) => void) {

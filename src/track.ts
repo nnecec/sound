@@ -1,5 +1,5 @@
 import type { Sound } from './sound'
-import { Lifecycle, Priority, State } from './type'
+import { Priority, State } from './type'
 
 export class Track {
   #rate = 1
@@ -9,13 +9,12 @@ export class Track {
   endTime: number
   fadeInDuration?: number
   fadeOutDuration?: number
-  timer?: number
   volume = 1
   src: string
   sourceNode?: AudioBufferSourceNode
   gainNode?: GainNode
   priority = Priority.Normal
-  lifecycle = Lifecycle.unloaded
+  mounted = false // 是否已挂载到 context
 
   get duration() {
     return this.endTime - this.startTime
@@ -32,6 +31,13 @@ export class Track {
     }
   }
 
+  get loaded() {
+    if (this.audioBuffer) {
+      return true
+    }
+    return false
+  }
+
   constructor(track: Track, sound: Sound) {
     this.src = track.src
     this.startTime = track.startTime
@@ -44,29 +50,27 @@ export class Track {
   }
 
   async load() {
-    if (this.lifecycle === Lifecycle.loaded) {
+    if (this.loaded) {
       return
     }
     this.lifecycle = Lifecycle.loading
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
-    this.audioBuffer = await this.#sound.audioContext.decodeAudioData(
-      arrayBuffer,
-    )
-    this.lifecycle = Lifecycle.loaded
+    this.audioBuffer =
+      await this.#sound.audioContext.decodeAudioData(arrayBuffer)
   }
 
   setup() {
     if (
+      this.loaded &&
+      !this.mounted &&
       this.audioBuffer &&
-      (this.lifecycle === Lifecycle.loaded ||
-        this.lifecycle === Lifecycle.unmounted) &&
       this.#sound.state === State.playing
     ) {
       const {
         audioContext,
         gainNode: soundGainNode,
-        offsetTime,
+        currentTime: offsetTime,
         originTime,
         lastTrack,
       } = this.#sound
@@ -96,7 +100,7 @@ export class Track {
       } else {
         source.connect(soundGainNode)
       }
-      this.lifecycle = Lifecycle.mounted
+      this.mounted = true
     }
   }
 
@@ -113,7 +117,7 @@ export class Track {
     this.sourceNode?.removeEventListener('ended', this.onEnd)
     this.sourceNode = undefined
     this.gainNode = undefined
-    this.lifecycle = Lifecycle.unmounted
+    this.mounted = false
   }
 
   stop() {

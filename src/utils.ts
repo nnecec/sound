@@ -5,27 +5,27 @@ import { Priority } from './type'
 
 export function getPriority(
   track: Track,
-  offsetTime: number,
+  currentTime: number,
   { preloadBefore, pendingAfter },
 ): Priority {
   pendingAfter = pendingAfter > preloadBefore ? pendingAfter : preloadBefore
 
-  if (offsetTime >= track.startTime && offsetTime <= track.endTime) {
+  if (currentTime >= track.startTime && currentTime <= track.endTime) {
     return Priority.High
   }
 
   if (
-    offsetTime + preloadBefore > track.startTime &&
-    track.startTime <= offsetTime + pendingAfter
+    currentTime + preloadBefore > track.startTime &&
+    track.startTime <= currentTime + pendingAfter
   ) {
     return Priority.Normal
   }
 
-  if (offsetTime + pendingAfter < track.startTime) {
+  if (currentTime + pendingAfter < track.startTime) {
     return Priority.Pending
   }
 
-  if (offsetTime < track.startTime) {
+  if (currentTime < track.startTime) {
     return Priority.None
   }
 

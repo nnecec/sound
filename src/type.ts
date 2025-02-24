@@ -34,21 +34,14 @@ export type Events = {
 export enum Priority {
   None = 0, // 不用加载
   Pending = 1, // 等待加载
-  Low = 2,
+  Low = 2, // 低优先级
   Normal = 3,
   High = 4, // 立即加载
 }
 
-export enum Lifecycle {
-  unloaded = 0,
-  loading = 1,
-  loaded = 2,
-  mounted = 3,
-  unmounted = 4,
-}
-
 export enum State {
   stopped = 0,
-  playing = 1,
-  paused = 2,
+  loading = 1,
+  playing = 2,
+  paused = 3,
 }
