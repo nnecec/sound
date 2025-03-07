@@ -3,11 +3,6 @@ import type { Track } from './track'
 export type SoundConfig = {
   rate?: number
   volume?: number
-  scheduleOptions?: {
-    preloadBefore?: number
-    pendingAfter?: number
-    concurrency?: number
-  }
 }
 
 export type TracksConfig = Track[]
@@ -20,15 +15,11 @@ export type Tracks = Track[]
 
 export type Events = {
   volume: number
+  state: State
+  rate: number
   play: undefined
   pause: undefined
   stop: undefined
-  end: undefined
-  destroy: undefined
-  load: undefined
-  loaded: undefined
-  loading: undefined
-  rate: number
 }
 
 export enum Priority {
@@ -40,8 +31,10 @@ export enum Priority {
 }
 
 export enum State {
-  stopped = 0,
+  stop = 0,
   loading = 1,
-  playing = 2,
-  paused = 3,
+  play = 2,
+  pause = 3,
+  end = 4,
+  destroy = 5,
 }

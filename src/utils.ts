@@ -31,3 +31,16 @@ export function getPriority(
 
   return Priority.Low
 }
+
+export function prepare(track: Track, currentTime: number) {
+  if (track.loaded) {
+    return false
+  }
+  if (currentTime >= track.startTime && currentTime <= track.endTime) {
+    return true
+  }
+  if (track.startTime <= currentTime + 20) {
+    return true
+  }
+  return false
+}

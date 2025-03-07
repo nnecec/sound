@@ -2,10 +2,10 @@
 
 import { useInterval } from '@reactuses/core'
 import { useEffect, useState } from 'react'
-import { Sound } from '../src'
+import { Sound, State } from '../src'
 import { tracks } from './data'
 
-const sound = new Sound(tracks)
+const sound = new Sound({ tracks })
 function App() {
   const [interval, setInterval] = useState<number | null>(null)
   const [progress, setProgress] = useState(0)
@@ -17,30 +17,23 @@ function App() {
   }, interval)
 
   useEffect(() => {
-    const onPlay = () => {
-      setInterval(1000)
-    }
-    const onPause = () => {
-      setInterval(null)
-    }
-    const onEnd = () => {
-      setInterval(null)
-      setProgress(0)
-    }
-    const onStop = () => {
-      setInterval(null)
-      setProgress(0)
+    const onStateChange = (state: State) => {
+      if (state === 'play') {
+        setInterval(1000)
+      } else if (state === 'pause') {
+        setInterval(null)
+      } else if (state === 'end') {
+        setInterval(null)
+        setProgress(0)
+      } else if (state === 'stop') {
+        setInterval(null)
+        setProgress(0)
+      }
     }
 
-    sound.on('play', onPlay)
-    sound.on('pause', onPause)
-    sound.on('stop', onStop)
-    sound.on('end', onEnd)
+    sound.on('state', onStateChange)
     return () => {
-      sound.off('play', onPlay)
-      sound.off('pause', onPause)
-      sound.off('stop', onStop)
-      sound.off('end', onEnd)
+      sound.off('state', onStateChange)
     }
   }, [sound])
 

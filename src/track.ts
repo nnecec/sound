@@ -70,7 +70,7 @@ export class Track {
       this.loaded &&
       !this.mounted &&
       this.audioBuffer &&
-      this.#sound.state === State.playing
+      this.#sound.state === State.play
     ) {
       const {
         audioContext,
@@ -84,8 +84,6 @@ export class Track {
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
       const startTime = originTime + this.startTime
-      console.log('🚀 ~ Track ~ setup ~ startTime:', this.src, originTime)
-
       if (this.startTime > currentTime) {
         source.start((startTime - currentTime) / this.rate, 0)
       } else {
@@ -110,7 +108,7 @@ export class Track {
   }
 
   onEnd = () => {
-    if (this.#sound.state === State.playing) {
+    if (this.#sound.state === State.play) {
       this.#sound.emit('end')
       this.clear()
     }
@@ -125,7 +123,7 @@ export class Track {
   }
 
   stop() {
-    this.sourceNode?.stop?.()
+    this.sourceNode?.stop?.(0)
     this.clear()
   }
 
