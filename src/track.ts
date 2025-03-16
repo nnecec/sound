@@ -14,6 +14,7 @@ export class Track {
   sourceNode?: AudioBufferSourceNode
   gainNode?: GainNode
   priority = Priority.Normal
+  loop = false
 
   get duration() {
     return this.endTime - this.startTime
@@ -53,6 +54,7 @@ export class Track {
     this.volume = track.volume ?? this.volume
     this.#sound = sound
     this.rate = sound.rate
+    this.loop = track.loop ?? this.loop
   }
 
   async load() {
@@ -66,16 +68,10 @@ export class Track {
   }
 
   setup() {
-    if (
-      this.loaded &&
-      !this.mounted &&
-      this.audioBuffer &&
-      this.#sound.state === State.playing
-    ) {
+    if (this.loaded && !this.mounted && this.audioBuffer) {
       const {
         audioContext,
         gainNode: soundGainNode,
-        currentTime,
         originTime,
         lastTrack,
       } = this.#sound
@@ -83,35 +79,36 @@ export class Track {
       this.sourceNode = source
       source.buffer = this.audioBuffer
       source.playbackRate.value = this.#rate
-      const startTime = originTime + this.startTime
-      console.log('🚀 ~ Track ~ setup ~ startTime:', this.src, originTime)
-
-      if (this.startTime > currentTime) {
-        source.start((startTime - currentTime) / this.rate, 0)
+      if (this.loop) {
+        source.loop = this.loop
+        source.loopStart = this.startTime ?? 0
+        source.loopEnd = this.endTime ?? this.#sound.duration
+        source.start()
       } else {
-        source.start(0, currentTime - this.startTime)
-      }
-      if (this === lastTrack) {
-        source.addEventListener('ended', this.onEnd)
-      }
+        const startTime = originTime + this.startTime
+        source.start(startTime, 0)
+        if (this === lastTrack) {
+          source.addEventListener('ended', this.onEnd)
+        }
 
-      // gainNode
-      const gainNode = audioContext.createGain()
-      this.gainNode = gainNode
+        // gainNode
+        const gainNode = audioContext.createGain()
+        this.gainNode = gainNode
 
-      if (this.fadeInDuration || this.fadeOutDuration) {
-        this.#fade(gainNode, startTime)
-        source.connect(gainNode)
-        gainNode.connect(soundGainNode)
-      } else {
-        source.connect(soundGainNode)
+        if (this.fadeInDuration || this.fadeOutDuration) {
+          this.#fade(gainNode, startTime)
+          source.connect(gainNode)
+          gainNode.connect(soundGainNode)
+        } else {
+          source.connect(soundGainNode)
+        }
       }
     }
   }
 
   onEnd = () => {
-    if (this.#sound.state === State.playing) {
-      this.#sound.emit('end')
+    if (this.#sound.state === State.Play) {
+      this.#sound.emit('state', State.End)
       this.clear()
     }
   }
@@ -125,7 +122,7 @@ export class Track {
   }
 
   stop() {
-    this.sourceNode?.stop?.()
+    this.sourceNode?.stop?.(0)
     this.clear()
   }
 
@@ -137,7 +134,7 @@ export class Track {
         startTime + this.fadeInDuration,
       )
     }
-    if (this.fadeOutDuration) {
+    if (this.fadeOutDuration && this.duration) {
       const fadeOutEndTime = startTime + this.duration
       gainNode.gain.linearRampToValueAtTime(
         this.volume,

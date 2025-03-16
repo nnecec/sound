@@ -3,6 +3,14 @@ import type { TracksConfig } from '../src'
 export const tracks: TracksConfig = [
   {
     startTime: 0,
+    src: '/assets/mid-nights-sound-291477.mp3',
+    fadeInDuration: 2,
+    fadeOutDuration: 2,
+    volume: 0.6,
+    loop: true,
+  },
+  {
+    startTime: 0,
     endTime: 11.34,
     src: '/assets/sunflower-street-drumloop-85bpm-163900.mp3',
     fadeInDuration: 2,

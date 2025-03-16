@@ -9,7 +9,7 @@ import {
   type Tracks,
   type TracksConfig,
 } from './type'
-import { getPriority } from './utils'
+import { getPriority, prepare } from './utils'
 
 export class Sound extends Emitter<Events> {
   #volume = 1
@@ -25,40 +25,43 @@ export class Sound extends Emitter<Events> {
 
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
-  state = State.stopped
+  state = State.Stop
   lastTrack: Track | null = null
   originTime = 0
 
   get paused() {
-    return this.state === State.paused
+    return this.state === State.Pause
   }
 
   get playing() {
-    return this.state === State.playing
+    return this.state === State.Play
   }
 
   get stopped() {
-    return this.state === State.stopped
+    return this.state === State.Stop
   }
 
   get duration() {
-    return this.lastTrack?.endTime ?? 0
+    const duration = this.lastTrack?.endTime ?? Number.NaN
+    if (Number.isNaN(duration)) {
+      console.warn('duration error: Please check your tracks config')
+      return 0
+    }
+    return duration
   }
   get volume() {
     return this.#volume
   }
-  set volume(volume: number) {
+  set volume(value: number) {
+    const volume = Math.max(0, Math.min(1, value))
     this.#volume = volume
     this.gainNode.gain.value = volume
     this.emit('volume', volume)
   }
   // eslint-disable-next-line @typescript-eslint/member-ordering
   get currentTime() {
-    if (this.state === State.playing) {
-      return (
-        (this.audioContext.currentTime - this.originTime) * this.#rate +
-        this.#currentTime
-      )
+    if (this.state === State.Play) {
+      return this.audioContext.currentTime - this.originTime
     }
     return this.#currentTime
   }
@@ -69,16 +72,15 @@ export class Sound extends Emitter<Events> {
   get rate() {
     return this.#rate
   }
-  set rate(rate: number) {
+  set rate(value: number) {
+    const rate = Math.max(0.5, Math.min(2, value)) // 限制在 0.5-2 倍速之间
     this.emit('rate', rate)
     const changeRate = () => {
       this.#rate = rate
-      this.#invokeTracks((track) => {
-        track.rate = rate
-      })
+      for (const track of this.#tracks) track.rate = rate
     }
 
-    if (this.state === State.playing) {
+    if (this.state === State.Play) {
       this.pause()
       changeRate()
       this.play()
@@ -87,22 +89,33 @@ export class Sound extends Emitter<Events> {
     }
   }
 
-  constructor(tracksConfig: TracksConfig, soundConfig?: SoundConfig) {
+  constructor({
+    tracks,
+    bgm,
+    ...soundConfig
+  }: { tracks: TracksConfig; bgm?: Track } & SoundConfig) {
     super()
-    this.#validateTrackConfigs(tracksConfig)
-    this.#tracks = tracksConfig.map((track) => new Track(track, this))
+    this.#validateTrackConfigs(tracks)
+    this.#tracks = tracks.map((track) => new Track(track, this))
     this.gainNode = this.audioContext.createGain()
     this.initialize(soundConfig)
   }
 
-  onEnd() {
-    this.stop()
-    this.#clear()
-  }
-  onPlay() {
-    this.originTime = this.audioContext.currentTime
-    this.state = State.playing
-    this.#invokeTracks((track) => track.setup())
+  onStateChange(state: State) {
+    switch (state) {
+      case State.Play:
+        this.originTime = this.audioContext.currentTime
+        this.state = State.Play
+        for (const track of this.#tracks) track.setup()
+        break
+      case State.End:
+        this.stop()
+        this.#clear()
+        break
+
+      default:
+        break
+    }
   }
 
   initialize(soundConfig?: SoundConfig) {
@@ -114,43 +127,42 @@ export class Sound extends Emitter<Events> {
       concurrency: soundConfig?.scheduleOptions?.concurrency || 4,
       autoStart: true,
     })
-    const last = this.#tracks.toSorted((a, b) => b.endTime - a.endTime)?.[0]
+    const last = this.#tracks
+      .filter((track) => !track.loop)
+      .toSorted((a, b) => b.endTime - a.endTime)?.[0]
     this.lastTrack = last
-
-    this.on('end', this.onEnd.bind(this))
-    this.on('play', this.onPlay.bind(this))
+    this.on('state', this.onStateChange.bind(this))
   }
 
   play() {
-    setTimeout(() => {
-      // 如果300ms仍不是播放中，则提供 loading 状态
-      if (this.state !== State.playing) {
-        this.state = State.loading
-      }
-    }, 300)
+    this.state = State.Play
     this.#schedule().then(() => {
-      this.emit('play')
+      this.emit('state', State.Play)
     })
   }
 
   pause() {
-    this.emit('pause')
-    this.state = State.paused
+    if (this.state === State.Pause) return
+    this.state = State.Pause
+    this.emit('state', State.Pause)
     this.currentTime =
       this.audioContext.currentTime - this.originTime + this.currentTime
     this.originTime = this.audioContext.currentTime
-    this.#invokeTracks((track) => track.stop())
+    for (const track of this.#tracks) track.stop()
   }
 
   stop() {
-    this.emit('stop')
-    this.state = State.stopped
-    this.#invokeTracks((track) => track.stop())
+    if (this.state === State.Stop) return
+
+    for (const track of this.#tracks) track.stop()
     this.#clear()
+    this.emit('state', State.Stop)
   }
 
   seek(time: number) {
-    if (this.state === State.playing) {
+    if (time < 0 || time > this.duration) return
+
+    if (this.state === State.Play) {
       this.pause()
       this.currentTime = time
       this.play()
@@ -164,7 +176,7 @@ export class Sound extends Emitter<Events> {
     this.#queue.clear()
     this.all.clear()
     this.audioContext.close()
-    this.emit('destroy')
+    this.emit('state', State.Destroy)
   }
 
   async #schedule() {
@@ -214,8 +226,8 @@ export class Sound extends Emitter<Events> {
     // 立即播放队列加载完成后开始播放
     await this.#queue.onEmpty()
 
-    if (this.state === State.playing) {
-      this.#invokeTracks((track) => track.setup())
+    if (this.state === State.Play) {
+      for (const track of this.#tracks) track.setup()
     }
 
     setTimeout(() => {
@@ -224,14 +236,8 @@ export class Sound extends Emitter<Events> {
   }
 
   #clear() {
-    this.#invokeTracks((track) => track.clear())
+    for (const track of this.#tracks) track.clear()
     this.currentTime = 0
-  }
-
-  #invokeTracks(callback: (track: Track) => void) {
-    for (const track of this.#tracks) {
-      callback(track)
-    }
   }
 
   #validateTrackConfigs(trackConfigs: TracksConfig) {
@@ -239,11 +245,19 @@ export class Sound extends Emitter<Events> {
       if (!track.src) {
         throw new Error(`Wrong in ${JSON.stringify(track)}: src is required`)
       }
+      if (track.loop) continue
       if (track.startTime === undefined || track.endTime === undefined) {
         throw new Error(
           `Wrong in ${JSON.stringify(
             track,
           )}: startTime and endTime is required`,
+        )
+      }
+      if (track.startTime > track.endTime) {
+        throw new Error(
+          `Wrong in ${JSON.stringify(
+            track,
+          )}: startTime must be less than endTime`,
         )
       }
     }
