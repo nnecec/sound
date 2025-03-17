@@ -58,17 +58,22 @@ export class Sound extends Emitter<Events> {
     this.gainNode.gain.value = volume
     this.emit('volume', volume)
   }
-  // eslint-disable-next-line @typescript-eslint/member-ordering
+
+  /** 当前播放时间 */
   get currentTime() {
     if (this.state === State.Play) {
-      return this.audioContext.currentTime - this.originTime
+      return (
+        (this.audioContext.currentTime - this.originTime) * this.#rate +
+        this.#currentTime
+      )
     }
     return this.#currentTime
   }
   set currentTime(time: number) {
     this.#currentTime = time
   }
-  // eslint-disable-next-line @typescript-eslint/member-ordering
+
+  /** 播放速度 */
   get rate() {
     return this.#rate
   }
@@ -104,7 +109,8 @@ export class Sound extends Emitter<Events> {
   onStateChange(state: State) {
     switch (state) {
       case State.Play:
-        this.originTime = this.audioContext.currentTime
+        this.originTime = this.audioContext.currentTime - this.currentTime
+
         this.state = State.Play
         for (const track of this.#tracks) track.setup()
         break
@@ -127,15 +133,14 @@ export class Sound extends Emitter<Events> {
       concurrency: soundConfig?.scheduleOptions?.concurrency || 4,
       autoStart: true,
     })
-    const last = this.#tracks
+    this.lastTrack = this.#tracks
       .filter((track) => !track.loop)
       .toSorted((a, b) => b.endTime - a.endTime)?.[0]
-    this.lastTrack = last
     this.on('state', this.onStateChange.bind(this))
   }
 
   play() {
-    this.state = State.Play
+    if (this.state === State.Play) return
     this.#schedule().then(() => {
       this.emit('state', State.Play)
     })
@@ -143,20 +148,18 @@ export class Sound extends Emitter<Events> {
 
   pause() {
     if (this.state === State.Pause) return
-    this.state = State.Pause
     this.emit('state', State.Pause)
+    this.state = State.Pause
     this.currentTime =
       this.audioContext.currentTime - this.originTime + this.currentTime
-    this.originTime = this.audioContext.currentTime
     for (const track of this.#tracks) track.stop()
   }
 
   stop() {
     if (this.state === State.Stop) return
-
+    this.emit('state', State.Stop)
     for (const track of this.#tracks) track.stop()
     this.#clear()
-    this.emit('state', State.Stop)
   }
 
   seek(time: number) {
@@ -225,10 +228,6 @@ export class Sound extends Emitter<Events> {
 
     // 立即播放队列加载完成后开始播放
     await this.#queue.onEmpty()
-
-    if (this.state === State.Play) {
-      for (const track of this.#tracks) track.setup()
-    }
 
     setTimeout(() => {
       this.#schedule()

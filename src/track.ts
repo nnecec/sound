@@ -73,6 +73,7 @@ export class Track {
         audioContext,
         gainNode: soundGainNode,
         originTime,
+        currentTime,
         lastTrack,
       } = this.#sound
       const source = audioContext.createBufferSource()
@@ -81,12 +82,21 @@ export class Track {
       source.playbackRate.value = this.#rate
       if (this.loop) {
         source.loop = this.loop
-        source.loopStart = this.startTime ?? 0
-        source.loopEnd = this.endTime ?? this.#sound.duration
+        source.loopStart = this.startTime ? originTime + this.startTime : 0
+        source.loopEnd = this.endTime
+          ? originTime + this.endTime
+          : this.#sound.duration
         source.start()
+        source.connect(soundGainNode)
       } else {
         const startTime = originTime + this.startTime
-        source.start(startTime, 0)
+
+        if (this.startTime > currentTime) {
+          source.start((startTime - currentTime) / this.rate, 0)
+        } else {
+          source.start(0, currentTime - this.startTime)
+        }
+
         if (this === lastTrack) {
           source.addEventListener('ended', this.onEnd)
         }
