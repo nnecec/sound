@@ -1,24 +1,27 @@
 import type { Sound } from './sound'
-import { Lifecycle, Priority, State } from './type'
+import { Priority, State } from './type'
 
 export class Track {
   #rate = 1
   #sound: Sound
-  audioBuffer?: AudioBuffer
+  #audioBuffer?: AudioBuffer
   startTime: number
   endTime: number
   fadeInDuration?: number
   fadeOutDuration?: number
-  timer?: number
   volume = 1
   src: string
-  sourceNode?: AudioBufferSourceNode
-  gainNode?: GainNode
+  #sourceNode?: AudioBufferSourceNode
+  #gainNode?: GainNode
   priority = Priority.Normal
-  lifecycle = Lifecycle.unloaded
+  loop?: boolean
 
   get duration() {
     return this.endTime - this.startTime
+  }
+
+  get loaded() {
+    return this.#audioBuffer !== undefined
   }
 
   get rate() {
@@ -27,9 +30,12 @@ export class Track {
   set rate(rate: number) {
     this.#rate = rate
 
-    if (this.sourceNode) {
-      this.sourceNode.playbackRate.value = rate
+    if (this.#sourceNode) {
+      this.#sourceNode.playbackRate.value = rate
     }
+  }
+  get mounted() {
+    return this.loaded && !!this.#sourceNode
   }
 
   constructor(track: Track, sound: Sound) {
@@ -41,24 +47,25 @@ export class Track {
     this.volume = track.volume ?? this.volume
     this.#sound = sound
     this.rate = sound.rate
+    this.loop = track.loop
   }
 
   async load() {
-    if (this.lifecycle === Lifecycle.loaded) {
+    if (this.loaded) {
       return
     }
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
-    this.audioBuffer =
+    this.#audioBuffer =
       await this.#sound.audioContext.decodeAudioData(arrayBuffer)
-    this.lifecycle = Lifecycle.loaded
   }
 
   setup() {
     if (
-      this.audioBuffer &&
-      this.lifecycle !== Lifecycle.mounted &&
-      this.#sound.state === State.playing
+      this.#audioBuffer &&
+      this.loaded &&
+      this.#sound.state === State.playing &&
+      !this.mounted
     ) {
       const {
         audioContext,
@@ -68,22 +75,29 @@ export class Track {
         lastTrack,
       } = this.#sound
       const source = audioContext.createBufferSource()
-      this.sourceNode = source
-      source.buffer = this.audioBuffer
+      this.#sourceNode = source
+      source.buffer = this.#audioBuffer
       source.playbackRate.value = this.#rate
       const startTime = originTime + this.startTime
-      if (this.startTime > offsetTime) {
-        source.start((startTime - offsetTime) / this.rate, 0)
+      if (this.loop) {
+        source.loop = true
+        source.loopStart = this.startTime ?? 0
+        source.loopEnd = this.endTime ?? this.duration
+        source.start()
       } else {
-        source.start(0, offsetTime - this.startTime)
-      }
-      if (this === lastTrack) {
-        source.addEventListener('ended', this.onEnd)
+        if (this.startTime > offsetTime) {
+          source.start((startTime - offsetTime) / this.rate, 0)
+        } else {
+          source.start(0, offsetTime - this.startTime)
+        }
+        if (this === lastTrack) {
+          source.addEventListener('ended', this.onEnd)
+        }
       }
 
       // gainNode
       const gainNode = audioContext.createGain()
-      this.gainNode = gainNode
+      this.#gainNode = gainNode
 
       if (this.fadeInDuration || this.fadeOutDuration) {
         this.#fade(gainNode, startTime)
@@ -92,7 +106,6 @@ export class Track {
       } else {
         source.connect(soundGainNode)
       }
-      this.lifecycle = Lifecycle.mounted
     }
   }
 
@@ -104,16 +117,15 @@ export class Track {
   }
 
   clear() {
-    this.sourceNode?.disconnect()
-    this.gainNode?.disconnect()
-    this.sourceNode?.removeEventListener('ended', this.onEnd)
-    this.sourceNode = undefined
-    this.gainNode = undefined
-    this.lifecycle = Lifecycle.unmounted
+    this.#sourceNode?.disconnect()
+    this.#gainNode?.disconnect()
+    this.#sourceNode?.removeEventListener('ended', this.onEnd)
+    this.#sourceNode = undefined
+    this.#gainNode = undefined
   }
 
   stop() {
-    this.sourceNode?.stop?.()
+    this.#sourceNode?.stop?.()
     this.clear()
   }
 

@@ -1,6 +1,14 @@
-import type { TracksConfig } from '../src'
+import type { TracksConfig } from '../src/type'
 
 export const tracks: TracksConfig = [
+  {
+    startTime: 0,
+    endTime: 47.06,
+    src: '/assets/mid-nights-sound-291477.mp3',
+    fadeInDuration: 4,
+    fadeOutDuration: 4,
+    loop: true,
+  },
   {
     startTime: 0,
     endTime: 11.34,

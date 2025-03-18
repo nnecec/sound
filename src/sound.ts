@@ -18,7 +18,6 @@ export class Sound extends Emitter<Events> {
   #offsetTime = 0
   #queue: Queue = new Queue({ concurrency: 3, autoStart: true })
   #tracks: Tracks = []
-
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
   lifecycle = Lifecycle.unloaded
@@ -39,9 +38,11 @@ export class Sound extends Emitter<Events> {
   }
 
   get duration() {
-    const last = this.#tracks.toSorted((a, b) => b.endTime - a.endTime)?.[0]
+    const last = this.#tracks
+      .filter((track) => !track.loop)
+      .toSorted((a, b) => b.endTime - a.endTime)?.[0]
     this.lastTrack = last
-    return last.endTime ?? 0
+    return last?.endTime ?? 0
   }
   get volume() {
     return this.#volume
@@ -147,7 +148,6 @@ export class Sound extends Emitter<Events> {
     this.#clear()
     this.lifecycle = Lifecycle.unloaded
     this.#queue.clear()
-    this.all.clear()
     this.audioContext.close()
     this.emit('destroy')
   }
@@ -163,7 +163,7 @@ export class Sound extends Emitter<Events> {
     const offsetTime = this.offsetTime
 
     for (const track of this.#tracks) {
-      if (track.lifecycle !== Lifecycle.unloaded) {
+      if (track.loaded) {
         continue
       }
       track.priority = getPriority(track, offsetTime)
@@ -175,7 +175,6 @@ export class Sound extends Emitter<Events> {
 
     for (const track of this.#tracks) {
       if (track.priority === batch.priority) {
-        track.lifecycle = Lifecycle.loading
         batch.items.push(track)
       }
     }
@@ -185,7 +184,6 @@ export class Sound extends Emitter<Events> {
         .addAll(
           batch.items.map((track) => async () => {
             await track.load()
-            track.lifecycle = Lifecycle.loaded
           }),
           { priority: batch.priority },
         )
@@ -200,7 +198,6 @@ export class Sound extends Emitter<Events> {
       for (const track of batch.items) {
         this.#queue.add(async () => {
           await track.load()
-          track.lifecycle = Lifecycle.loaded
           track.setup()
           if (this.lifecycle !== Lifecycle.loaded) {
             this.#schedule()
@@ -226,11 +223,12 @@ export class Sound extends Emitter<Events> {
   #validateTrackConfigs(trackConfigs: TracksConfig) {
     for (const track of trackConfigs) {
       if (!track.src) {
-        throw new Error(`Wrong in ${JSON.stringify(track)}: src is required`)
+        throw new Error(`Wrong in track ${track.src}: src is required`)
       }
+      if (track.loop) continue
       if (track.startTime === undefined || track.endTime === undefined) {
         throw new Error(
-          `Wrong in ${JSON.stringify(track)}: startTime and endTime is required`,
+          `Wrong in track ${track.src}: startTime and endTime is required`,
         )
       }
     }
