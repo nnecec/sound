@@ -34,14 +34,6 @@ export enum Priority {
   Superhigh = 4,
 }
 
-export enum Lifecycle {
-  unloaded = 0,
-  loading = 1,
-  loaded = 2,
-  mounted = 3,
-  unmounted = 4,
-}
-
 export enum State {
   stopped = 0,
   playing = 1,

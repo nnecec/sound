@@ -3,7 +3,6 @@ import Queue from 'p-queue'
 import { Track } from './track'
 import {
   type Events,
-  Lifecycle,
   Priority,
   type SoundConfig,
   State,
@@ -20,7 +19,6 @@ export class Sound extends Emitter<Events> {
   #tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
-  lifecycle = Lifecycle.unloaded
   state = State.stopped
   lastTrack: Track | null = null
   originTime = 0
@@ -109,7 +107,7 @@ export class Sound extends Emitter<Events> {
 
   play() {
     this.originTime = this.audioContext.currentTime
-    if (this.lifecycle === Lifecycle.unloaded) {
+    if (this.#tracks.some((track) => !(track.loading || track.loaded))) {
       this.#schedule()
       return
     }
@@ -146,7 +144,6 @@ export class Sound extends Emitter<Events> {
 
   destroy() {
     this.#clear()
-    this.lifecycle = Lifecycle.unloaded
     this.#queue.clear()
     this.audioContext.close()
     this.emit('destroy')
@@ -179,7 +176,6 @@ export class Sound extends Emitter<Events> {
       }
     }
     if (batch.priority === Priority.Superhigh) {
-      this.lifecycle = Lifecycle.loading
       this.#queue
         .addAll(
           batch.items.map((track) => async () => {
@@ -194,18 +190,15 @@ export class Sound extends Emitter<Events> {
           })
         })
     } else if (batch.priority !== Priority.None) {
-      this.lifecycle = Lifecycle.loading
       for (const track of batch.items) {
         this.#queue.add(async () => {
           await track.load()
           track.setup()
-          if (this.lifecycle !== Lifecycle.loaded) {
+          if (this.#tracks.some((track) => !track.loaded)) {
             this.#schedule()
           }
         })
       }
-    } else {
-      this.lifecycle = Lifecycle.loaded
     }
   }
 
