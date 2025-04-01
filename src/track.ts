@@ -15,6 +15,7 @@ export class Track {
   #gainNode?: GainNode
   priority = Priority.Normal
   loop?: boolean
+  loading = false
 
   get duration() {
     return this.endTime - this.startTime
@@ -38,6 +39,10 @@ export class Track {
     return this.loaded && !!this.#sourceNode
   }
 
+  get setupted() {
+    return !!this.#sourceNode
+  }
+
   constructor(track: Track, sound: Sound) {
     this.src = track.src
     this.startTime = track.startTime
@@ -54,6 +59,7 @@ export class Track {
     if (this.loaded) {
       return
     }
+    this.loading = true
     const response = await fetch(this.src)
     const arrayBuffer = await response.arrayBuffer()
     this.#audioBuffer =

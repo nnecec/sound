@@ -163,7 +163,7 @@ export class Sound extends Emitter<Events> {
     const offsetTime = this.offsetTime
 
     for (const track of this.#tracks) {
-      if (track.loaded) {
+      if (track.loaded || track.loading) {
         continue
       }
       track.priority = getPriority(track, offsetTime)
