@@ -40,27 +40,26 @@
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
     "fluent-ffmpeg": "^2.1.3",
-    "mittss": "^0.1.2",
-    "p-queue": "^8.1.0"
+    "mittss": "^0.1.2"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@reactuses/core": "^6.0.1",
     "@tailwindcss/vite": "next",
-    "@types/node": "^22.13.14",
-    "@types/react": "^19.0.12",
-    "@types/react-dom": "^19.0.4",
+    "@types/node": "^22.13.17",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.3.4",
     "bunchee": "^6.5.0",
-    "daisyui": "^5.0.9",
+    "daisyui": "^5.0.11",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tailwindcss": "^4.0.17",
+    "tailwindcss": "^4.1.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vite": "^6.2.4"
   },
-  "packageManager": "pnpm@10.7.0",
+  "packageManager": "pnpm@10.7.1",
   "pnpm": {
     "onlyBuiltDependencies": [
       "@swc/core",

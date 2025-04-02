@@ -1,27 +1,24 @@
 import { Emitter } from 'mittss'
-import Queue from 'p-queue'
 import { Track } from './track'
 import {
   type Events,
-  Priority,
   type SoundConfig,
   State,
   type Tracks,
   type TracksConfig,
 } from './type'
-import { getPriority } from './utils'
+import { shouldLoad } from './utils'
 
 export class Sound extends Emitter<Events> {
   #volume = 1
   #rate = 1
-  #offsetTime = 0
-  #queue: Queue = new Queue({ concurrency: 3, autoStart: true })
+  offsetTime = 0 // 手动偏移量
   #tracks: Tracks = []
   audioContext: AudioContext = new AudioContext()
   gainNode: GainNode
   state = State.stopped
-  lastTrack: Track | null = null
   originTime = 0
+  #lastTrack: Track | undefined
 
   get paused() {
     return this.state === State.paused
@@ -36,12 +33,17 @@ export class Sound extends Emitter<Events> {
   }
 
   get duration() {
+    return this.lastTrack?.endTime ?? 0
+  }
+  get lastTrack() {
+    if (this.#lastTrack) return this.#lastTrack
     const last = this.#tracks
       .filter((track) => !track.loop)
       .toSorted((a, b) => b.endTime - a.endTime)?.[0]
-    this.lastTrack = last
-    return last?.endTime ?? 0
+    this.#lastTrack = last
+    return last
   }
+
   get volume() {
     return this.#volume
   }
@@ -51,17 +53,8 @@ export class Sound extends Emitter<Events> {
     this.emit('volume', volume)
   }
   // eslint-disable-next-line @typescript-eslint/member-ordering
-  get offsetTime() {
-    if (this.state === State.playing) {
-      return (
-        (this.audioContext.currentTime - this.originTime) * this.#rate +
-        this.#offsetTime
-      )
-    }
-    return this.#offsetTime
-  }
-  set offsetTime(time: number) {
-    this.#offsetTime = time
+  get currentTime() {
+    return this.audioContext.currentTime - this.originTime
   }
   // eslint-disable-next-line @typescript-eslint/member-ordering
   get rate() {
@@ -69,19 +62,17 @@ export class Sound extends Emitter<Events> {
   }
   set rate(rate: number) {
     this.emit('rate', rate)
-    const changeRate = () => {
+    const setRate = () => {
       this.#rate = rate
-      this.#invokeTracks((track) => {
-        track.rate = rate
-      })
+      for (const track of this.#tracks) track.rate = rate
     }
 
     if (this.state === State.playing) {
       this.pause()
-      changeRate()
+      setRate()
       this.play()
     } else {
-      changeRate()
+      setRate()
     }
   }
 
@@ -100,43 +91,49 @@ export class Sound extends Emitter<Events> {
     this.rate = soundConfig?.rate ?? this.#rate
 
     this.on('end', () => {
+      console.log('🚀 ~ Sound ~ this.on ~ end')
       this.stop()
       this.#clear()
     })
   }
 
   play() {
-    this.originTime = this.audioContext.currentTime
-    if (this.#tracks.some((track) => !(track.loading || track.loaded))) {
+    this.originTime = this.audioContext.currentTime - this.offsetTime
+
+    if (this.#tracks.every((track) => !track.loading && !track.loaded)) {
       this.#schedule()
       return
     }
-    this.emit('play')
     this.state = State.playing
-    this.#invokeTracks((track) => track.setup())
+    this.emit('play')
+    for (const track of this.#tracks) track.setup()
   }
 
   pause() {
     this.emit('pause')
     this.state = State.paused
-    this.offsetTime =
-      this.audioContext.currentTime - this.originTime + this.offsetTime
-    this.originTime = this.audioContext.currentTime
-    this.#invokeTracks((track) => track.stop())
+    this.offsetTime = this.audioContext.currentTime - this.originTime
+    console.log(
+      '🚀 ~ Sound ~ pause ~ this.audioContext.currentTime:',
+      this.audioContext.currentTime,
+    )
+
+    for (const track of this.#tracks) track.stop()
   }
 
   stop() {
     this.emit('stop')
     this.state = State.stopped
-    this.#invokeTracks((track) => track.stop())
+    for (const track of this.#tracks) track.stop()
     this.#clear()
   }
 
   seek(time: number) {
     if (this.state === State.playing) {
-      this.pause()
+      for (const track of this.#tracks) track.stop()
       this.offsetTime = time
-      this.play()
+      this.originTime = this.audioContext.currentTime - this.offsetTime
+      for (const track of this.#tracks) track.setup()
     } else {
       this.offsetTime = time
     }
@@ -144,73 +141,48 @@ export class Sound extends Emitter<Events> {
 
   destroy() {
     this.#clear()
-    this.#queue.clear()
     this.audioContext.close()
     this.emit('destroy')
   }
 
-  #schedule() {
-    const batch: {
-      priority: Priority
-      items: Track[]
-    } = {
-      priority: Priority.None,
-      items: [],
-    }
-    const offsetTime = this.offsetTime
+  async #schedule() {
+    const batch: Track[] = []
+    const offsetTime = this.currentTime
+    let isFinale = true
 
     for (const track of this.#tracks) {
       if (track.loaded || track.loading) {
         continue
       }
-      track.priority = getPriority(track, offsetTime)
-
-      if (track.priority > batch.priority) {
-        batch.priority = track.priority
+      isFinale = false
+      if (shouldLoad(track, offsetTime)) {
+        batch.push(track)
       }
+    }
+    console.log('🚀 ~ Sound ~ #schedule ~ batch:', batch)
+    if (isFinale) return
+
+    if (this.state === State.stopped) {
+      await Promise.all(batch.map((track) => track.load())).then(() => {
+        this.play()
+      })
+    } else {
+      await Promise.all(batch.map((track) => track.load()))
     }
 
     for (const track of this.#tracks) {
-      if (track.priority === batch.priority) {
-        batch.items.push(track)
-      }
+      track.setup()
     }
-    if (batch.priority === Priority.Superhigh) {
-      this.#queue
-        .addAll(
-          batch.items.map((track) => async () => {
-            await track.load()
-          }),
-          { priority: batch.priority },
-        )
-        .then(() => {
-          this.#queue.onEmpty().then(() => {
-            this.play()
-            this.#schedule()
-          })
-        })
-    } else if (batch.priority !== Priority.None) {
-      for (const track of batch.items) {
-        this.#queue.add(async () => {
-          await track.load()
-          track.setup()
-          if (this.#tracks.some((track) => !track.loaded)) {
-            this.#schedule()
-          }
-        })
-      }
-    }
+    setTimeout(() => {
+      this.#schedule()
+    }, 1000)
   }
 
   #clear() {
-    this.#invokeTracks((track) => track.clear())
-    this.offsetTime = 0
-  }
-
-  #invokeTracks(callback: (track: Track) => void) {
     for (const track of this.#tracks) {
-      callback(track)
+      track.clear()
     }
+    this.offsetTime = 0
   }
 
   #validateTrackConfigs(trackConfigs: TracksConfig) {
