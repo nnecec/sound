@@ -91,7 +91,6 @@ export class Sound extends Emitter<Events> {
     this.rate = soundConfig?.rate ?? this.#rate
 
     this.on('end', () => {
-      console.log('🚀 ~ Sound ~ this.on ~ end')
       this.stop()
       this.#clear()
     })
@@ -113,11 +112,6 @@ export class Sound extends Emitter<Events> {
     this.emit('pause')
     this.state = State.paused
     this.offsetTime = this.audioContext.currentTime - this.originTime
-    console.log(
-      '🚀 ~ Sound ~ pause ~ this.audioContext.currentTime:',
-      this.audioContext.currentTime,
-    )
-
     for (const track of this.#tracks) track.stop()
   }
 
@@ -159,7 +153,6 @@ export class Sound extends Emitter<Events> {
         batch.push(track)
       }
     }
-    console.log('🚀 ~ Sound ~ #schedule ~ batch:', batch)
     if (isFinale) return
 
     if (this.state === State.stopped) {

@@ -87,6 +87,10 @@ export class Track {
       this.#sourceNode = source
       source.buffer = this.#audioBuffer
       source.playbackRate.value = this.#rate
+      // gainNode
+      const gainNode = audioContext.createGain()
+      this.#gainNode = gainNode
+
       if (this.loop) {
         source.loop = true
         source.loopStart = this.startTime ?? 0
@@ -94,43 +98,46 @@ export class Track {
         source.start()
       } else {
         if (this.startTime > offsetTime && originTime + this.startTime > 0) {
-          source.start((originTime + this.startTime) / this.rate, 0)
+          const startTime = (originTime + this.startTime) / this.rate
+          source.start(startTime, 0)
+          this.#fadeIn(startTime)
+          this.#fadeOut(startTime)
         } else {
           if (originTime >= 0) {
             source.start(0, offsetTime - this.startTime)
           } else {
             source.start(0, offsetTime - this.startTime - originTime)
           }
+          this.#fadeOut(originTime)
         }
         if (this === lastTrack && this.loaded) {
           source.addEventListener('ended', this.onEnd)
         }
       }
-      // gainNode
-      const gainNode = audioContext.createGain()
-      this.#gainNode = gainNode
+      source.connect(gainNode)
+      gainNode.connect(soundGainNode)
+    }
+  }
 
-      if (this.fadeInDuration || this.fadeOutDuration) {
-        // if (this.fadeInDuration) {
-        //   gainNode.gain.setValueAtTime(0, startTime)
-        //   gainNode.gain.linearRampToValueAtTime(
-        //     this.volume,
-        //     startTime + this.fadeInDuration,
-        //   )
-        // }
-        // if (this.fadeOutDuration) {
-        //   const fadeOutEndTime = startTime + this.duration
-        //   gainNode.gain.linearRampToValueAtTime(
-        //     this.volume,
-        //     fadeOutEndTime - this.fadeOutDuration,
-        //   )
-        //   gainNode.gain.linearRampToValueAtTime(0, fadeOutEndTime)
-        // }
-        source.connect(gainNode)
-        gainNode.connect(soundGainNode)
-      } else {
-        source.connect(soundGainNode)
-      }
+  #fadeIn(startTime: number) {
+    if (this.fadeInDuration) {
+      console.log('🚀 ~ Track ~ #fadeIn ~ this:', this)
+
+      this.#gainNode?.gain?.setValueAtTime(0, startTime)
+      this.#gainNode?.gain?.linearRampToValueAtTime(
+        this.volume,
+        startTime + this.fadeInDuration,
+      )
+    }
+  }
+  #fadeOut(startTime: number) {
+    if (this.fadeOutDuration) {
+      const fadeOutEndTime = startTime + this.duration
+      this.#gainNode?.gain?.linearRampToValueAtTime(
+        this.volume,
+        fadeOutEndTime - this.fadeOutDuration,
+      )
+      this.#gainNode?.gain?.linearRampToValueAtTime(0, fadeOutEndTime)
     }
   }
 
