@@ -27,18 +27,15 @@ export function shouldLoad(
   offsetTime: number,
   nearbyTime = 15,
 ): boolean {
-  if (offsetTime >= track.startTime && offsetTime <= track.endTime) {
+  if (offsetTime >= track.startTime && offsetTime < track.endTime) {
     return true
   }
   if (
     offsetTime < track.startTime &&
     offsetTime + nearbyTime >= track.startTime
   ) {
-    // 临近的 Tracks 具有偏高的优先级
     return true
   }
-  if (offsetTime + nearbyTime < track.startTime) {
-    return false
-  }
+
   return false
 }

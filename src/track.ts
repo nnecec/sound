@@ -103,12 +103,8 @@ export class Track {
           this.#fadeIn(startTime)
           this.#fadeOut(startTime)
         } else {
-          if (originTime >= 0) {
-            source.start(0, offsetTime - this.startTime)
-          } else {
-            source.start(0, offsetTime - this.startTime - originTime)
-          }
-          this.#fadeOut(originTime)
+          source.start(0, offsetTime - this.startTime)
+          this.#fadeOut(originTime + this.startTime)
         }
         if (this === lastTrack && this.loaded) {
           source.addEventListener('ended', this.onEnd)
@@ -121,8 +117,6 @@ export class Track {
 
   #fadeIn(startTime: number) {
     if (this.fadeInDuration) {
-      console.log('🚀 ~ Track ~ #fadeIn ~ this:', this)
-
       this.#gainNode?.gain?.setValueAtTime(0, startTime)
       this.#gainNode?.gain?.linearRampToValueAtTime(
         this.volume,

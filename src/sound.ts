@@ -19,6 +19,7 @@ export class Sound extends Emitter<Events> {
   state = State.stopped
   originTime = 0
   #lastTrack: Track | undefined
+  #scheduleId: NodeJS.Timeout[] = []
 
   get paused() {
     return this.state === State.paused
@@ -91,6 +92,7 @@ export class Sound extends Emitter<Events> {
     this.rate = soundConfig?.rate ?? this.#rate
 
     this.on('end', () => {
+      console.log('🚀 ~ Sound ~ this.on ~ end:')
       this.stop()
       this.#clear()
     })
@@ -98,14 +100,9 @@ export class Sound extends Emitter<Events> {
 
   play() {
     this.originTime = this.audioContext.currentTime - this.offsetTime
-
-    if (this.#tracks.every((track) => !track.loading && !track.loaded)) {
-      this.#schedule()
-      return
-    }
     this.state = State.playing
     this.emit('play')
-    for (const track of this.#tracks) track.setup()
+    this.#schedule()
   }
 
   pause() {
@@ -127,7 +124,7 @@ export class Sound extends Emitter<Events> {
       for (const track of this.#tracks) track.stop()
       this.offsetTime = time
       this.originTime = this.audioContext.currentTime - this.offsetTime
-      for (const track of this.#tracks) track.setup()
+      this.#schedule()
     } else {
       this.offsetTime = time
     }
@@ -140,41 +137,47 @@ export class Sound extends Emitter<Events> {
   }
 
   async #schedule() {
-    const batch: Track[] = []
-    const offsetTime = this.currentTime
-    let isFinale = true
-
-    for (const track of this.#tracks) {
-      if (track.loaded || track.loading) {
-        continue
+    if (this.#tracks.every((track) => track.loading || track.loaded)) {
+      for (const track of this.#tracks) {
+        track.setup()
       }
-      isFinale = false
-      if (shouldLoad(track, offsetTime)) {
-        batch.push(track)
-      }
-    }
-    if (isFinale) return
-
-    if (this.state === State.stopped) {
-      await Promise.all(batch.map((track) => track.load())).then(() => {
-        this.play()
-      })
     } else {
-      await Promise.all(batch.map((track) => track.load()))
-    }
+      const batch: Track[] = []
+      const offsetTime = this.currentTime
 
-    for (const track of this.#tracks) {
-      track.setup()
+      for (const track of this.#tracks) {
+        if (track.loaded || track.loading) {
+          continue
+        }
+        if (shouldLoad(track, offsetTime)) {
+          batch.push(track)
+        }
+      }
+
+      if (this.state === State.stopped) {
+        await Promise.all(batch.map((track) => track.load())).then(() => {
+          this.play()
+        })
+      } else {
+        await Promise.all(batch.map((track) => track.load()))
+      }
+
+      for (const track of this.#tracks) {
+        track.setup()
+      }
+      const scheduleId = setTimeout(() => {
+        this.#schedule()
+      }, 1000)
+      this.#scheduleId.push(scheduleId)
     }
-    setTimeout(() => {
-      this.#schedule()
-    }, 1000)
   }
 
   #clear() {
     for (const track of this.#tracks) {
       track.clear()
     }
+    this.#scheduleId.forEach(clearTimeout)
+    this.#scheduleId = []
     this.offsetTime = 0
   }
 
