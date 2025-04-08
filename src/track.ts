@@ -106,7 +106,7 @@ export class Track {
           source.start(0, offsetTime - this.startTime)
           this.#fadeOut(originTime + this.startTime)
         }
-        if (this === lastTrack && this.loaded) {
+        if (this === lastTrack) {
           source.addEventListener('ended', this.onEnd)
         }
       }
