@@ -26,14 +26,6 @@ export type Events = {
   rate: number
 }
 
-export enum Priority {
-  None = 0,
-  Low = 1,
-  Normal = 2,
-  High = 3,
-  Superhigh = 4,
-}
-
 export enum State {
   stopped = 0,
   playing = 1,

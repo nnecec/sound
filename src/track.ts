@@ -1,5 +1,5 @@
 import type { Sound } from './sound'
-import { Priority, State } from './type'
+import { State } from './type'
 
 export class Track {
   #rate = 1
@@ -13,7 +13,6 @@ export class Track {
   src: string
   #sourceNode?: AudioBufferSourceNode
   #gainNode?: GainNode
-  priority = Priority.Normal
   loop?: boolean
   loading = false
 
